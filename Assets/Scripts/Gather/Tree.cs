@@ -1,10 +1,11 @@
 using UnityEngine;
 
-public class Tree : MonoBehaviour, ITextInfoOverlay
+public class Tree : MonoBehaviour, ITextInfoOverlay, IGatherable
 {
     public int health = 5;
     [SerializeField] private GameObject logPrefab;
     [SerializeField] private int logDropCount = 1;
+    private bool hasFallen;
 
     void OnEnable()
     {
@@ -20,9 +21,18 @@ public class Tree : MonoBehaviour, ITextInfoOverlay
     {
         if (hit.dst != gameObject) return;
 
-        health -= hit.ctx.dmg;
+        Gather(hit.ctx.dmg);
+    }
 
-        Debug.Log("Tree took damage: " + hit.ctx.dmg);
+    public void Gather(int amount)
+    {
+        if (hasFallen || health <= 0)
+        {
+            return;
+        }
+
+        health -= Mathf.Max(1, amount);
+        Debug.Log("Tree took damage: " + amount);
 
         if (health <= 0)
         {
@@ -32,6 +42,12 @@ public class Tree : MonoBehaviour, ITextInfoOverlay
 
     void Fall()
     {
+        if (hasFallen)
+        {
+            return;
+        }
+        hasFallen = true;
+
         // Add rigidbody and make tree fall
         Rigidbody rb = gameObject.AddComponent<Rigidbody>();
         rb.AddForce(transform.forward * 5f, ForceMode.Impulse);
@@ -45,6 +61,9 @@ public class Tree : MonoBehaviour, ITextInfoOverlay
                 Instantiate(logPrefab, spawnPos, Quaternion.identity);
             }
         }
+
+        // Depleted tree should no longer be considered a gather target.
+        Destroy(this);
     }
 
     public string GetInfoText()

@@ -54,6 +54,9 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay
     private float previewBottomOffset = -0.5f;
     private Collider[] playerColliders;
     private string buildPlacementDebugReason = string.Empty;
+    private bool isNpcCommandMenuOpen;
+    private INpc selectedNpcForCommand;
+    private string npcCommandStatus = string.Empty;
 
     void Start()
     {
@@ -116,6 +119,16 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay
             return;
         }
 
+        if (isNpcCommandMenuOpen)
+        {
+            movementInput = Vector3.zero;
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            {
+                CloseNpcCommandMenu();
+            }
+            return;
+        }
+
         if (enableBuildSystem && selectedBuildIndex >= 0)
         {
             UpdateBuildPreview();
@@ -148,7 +161,7 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay
 
         if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
         {
-            TryPickup();
+            TryInteract();
         }
     }
 
@@ -264,6 +277,127 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay
             // Send event handler
             GameEvents.OnHit?.Invoke(new HitEvent(this.gameObject, hit.collider.gameObject, ctx));
         }
+    }
+
+    void TryInteract()
+    {
+        Ray cameraRay = GetCrosshairRay();
+        Vector3 aimPoint = cameraRay.origin + cameraRay.direction * 1000f;
+        if (RaycastIgnoreSelf(cameraRay, 1000f, out RaycastHit cameraHit))
+            aimPoint = cameraHit.point;
+
+        Vector3 playerPos = transform.position + Vector3.up * 1.0f;
+        Vector3 playerToAim = (aimPoint - playerPos).normalized;
+        if (playerToAim.sqrMagnitude < 0.0001f) playerToAim = transform.forward;
+        Ray playerRay = new Ray(playerPos, playerToAim);
+
+        Vector3 flatAim = new Vector3(playerToAim.x, 0, playerToAim.z);
+        if (flatAim.sqrMagnitude > 0.0001f)
+            transform.rotation = Quaternion.LookRotation(flatAim, Vector3.up);
+
+        if (!RaycastIgnoreSelf(playerRay, interactRange, out RaycastHit hit))
+        {
+            TryPickup();
+            return;
+        }
+
+        // --- NPC interaction ---
+        INpc npc = hit.collider.GetComponent<INpc>() ?? hit.collider.GetComponentInParent<INpc>();
+        if (npc != null)
+        {
+            if (npc.IsNeutral())
+            {
+                npc.Recruit(gameObject);
+                Debug.Log($"Recruited {npc.GetDisplayName()}");
+            }
+            else if (npc.GetOwner() == gameObject)
+            {
+                OpenNpcCommandMenu(npc);
+            }
+            return;
+        }
+
+        // --- Fall through to normal pickup ---
+        TryPickup();
+    }
+
+    void OpenNpcCommandMenu(INpc npc)
+    {
+        if (npc == null)
+        {
+            return;
+        }
+
+        selectedNpcForCommand = npc;
+        isNpcCommandMenuOpen = true;
+        npcCommandStatus = string.Empty;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+
+    void CloseNpcCommandMenu()
+    {
+        isNpcCommandMenuOpen = false;
+        selectedNpcForCommand = null;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
+    void ApplyNpcBehaviourCommand(NpcBehaviour behaviour)
+    {
+        if (!isNpcCommandMenuOpen || selectedNpcForCommand == null)
+        {
+            return;
+        }
+
+        selectedNpcForCommand.SetBehaviour(behaviour);
+        npcCommandStatus = $"{selectedNpcForCommand.GetDisplayName()} => {behaviour}";
+
+        if (behaviour == NpcBehaviour.Gather)
+        {
+            GameObject gatherTarget = FindNearestGatherableTarget(selectedNpcForCommand as MonoBehaviour);
+            if (gatherTarget != null)
+            {
+                selectedNpcForCommand.GatherFrom(gatherTarget);
+                npcCommandStatus = $"{selectedNpcForCommand.GetDisplayName()} gathering {gatherTarget.name}";
+            }
+            else
+            {
+                npcCommandStatus = $"{selectedNpcForCommand.GetDisplayName()} searching for resources";
+            }
+        }
+
+        Debug.Log(npcCommandStatus);
+        CloseNpcCommandMenu();
+    }
+
+    GameObject FindNearestGatherableTarget(MonoBehaviour npcBehaviour)
+    {
+        if (npcBehaviour == null)
+        {
+            return null;
+        }
+
+        MonoBehaviour[] allBehaviours = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+        GameObject nearestTarget = null;
+        float bestDistance = float.MaxValue;
+
+        for (int i = 0; i < allBehaviours.Length; i++)
+        {
+            if (allBehaviours[i] is not IGatherable)
+            {
+                continue;
+            }
+
+            float distance = Vector3.Distance(npcBehaviour.transform.position, allBehaviours[i].transform.position);
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                nearestTarget = allBehaviours[i].gameObject;
+            }
+        }
+
+        return nearestTarget;
     }
 
     void TryPickup()
@@ -425,43 +559,54 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay
         // Draw all debug overlay info
         if (showDebugOverlay && visibleOverlayObjects.Count > 0)
         {
+            const float labelWidth = 200f;
+            const float padding    = 8f;
+
             foreach (var kvp in visibleOverlayObjects)
             {
                 ITextInfoOverlay overlay = kvp.Key;
                 Vector3 worldPos = kvp.Value;
-                
+
                 string infoText = overlay.GetInfoText();
                 if (string.IsNullOrEmpty(infoText))
                     continue;
 
-                // Convert world position to screen position
+                // WorldToScreenPoint has Y=0 at bottom; OnGUI has Y=0 at top — flip it.
                 Vector3 screenPos = mainCamera.WorldToScreenPoint(worldPos);
-                
-                // Only display if in front of camera
-                if (screenPos.z > 0)
+                if (screenPos.z <= 0f) continue;
+                float guiX = screenPos.x;
+                float guiY = Screen.height - screenPos.y;
+
+                bool isHovered = (overlay == currentHoveredObject);
+
+                GUIStyle textStyle = new GUIStyle(GUI.skin.label);
+                textStyle.wordWrap  = true;
+                textStyle.richText  = false;
+                if (isHovered)
                 {
-                    bool isHovered = (overlay == currentHoveredObject);
-                    
-                    // Draw background box
-                    GUI.color = new Color(0, 0, 0, 0.7f);
-                    GUI.Box(new Rect(screenPos.x - 60, screenPos.y - 10, 120, 50), "");
-                    
-                    // Draw info text
-                    GUI.color = isHovered ? Color.yellow : Color.white;
-                    
-                    GUIStyle textStyle = new GUIStyle(GUI.skin.label);
-                    if (isHovered)
-                    {
-                        textStyle.fontStyle = FontStyle.Bold;
-                        textStyle.fontSize = 14;
-                    }
-                    
-                    GUI.Label(new Rect(screenPos.x - 50, screenPos.y, 100, 40), infoText, textStyle);
+                    textStyle.fontStyle = FontStyle.Bold;
+                    textStyle.fontSize  = 14;
                 }
+
+                // Measure text so the box always fits every line.
+                float labelHeight = textStyle.CalcHeight(new GUIContent(infoText), labelWidth);
+                float boxWidth    = labelWidth + padding * 2f;
+                float boxHeight   = labelHeight + padding * 2f;
+
+                // Place box just above the world-space anchor point.
+                float boxLeft = guiX - boxWidth * 0.5f;
+                float boxTop  = guiY - boxHeight - 6f;
+
+                GUI.color = new Color(0f, 0f, 0f, 0.75f);
+                GUI.Box(new Rect(boxLeft, boxTop, boxWidth, boxHeight), "");
+
+                GUI.color = isHovered ? Color.yellow : Color.white;
+                GUI.Label(new Rect(boxLeft + padding, boxTop + padding, labelWidth, labelHeight), infoText, textStyle);
             }
         }
 
         DrawBuildUI();
+        DrawNpcCommandUI();
     }
 
     void OnDisable()
@@ -854,6 +999,11 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay
 
     void DrawBuildUI()
     {
+        if (isNpcCommandMenuOpen)
+        {
+            return;
+        }
+
         if (!enableBuildSystem)
         {
             return;
@@ -927,6 +1077,62 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay
             GUI.Box(new Rect(10, Screen.height - 36, 180, 26), "");
             GUI.color = Color.white;
             GUI.Label(new Rect(18, Screen.height - 32, 170, 20), "Press B to build");
+        }
+    }
+
+    void DrawNpcCommandUI()
+    {
+        if (!isNpcCommandMenuOpen)
+        {
+            return;
+        }
+
+        if (selectedNpcForCommand == null)
+        {
+            CloseNpcCommandMenu();
+            return;
+        }
+
+        float width = 360f;
+        float height = 260f;
+        Rect window = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
+        GUI.Box(window, $"{selectedNpcForCommand.GetDisplayName()} Commands");
+
+        GUI.Label(new Rect(window.x + 12f, window.y + 30f, width - 24f, 20f), "Select NPC behaviour");
+
+        NpcBehaviour[] behaviours = new[]
+        {
+            NpcBehaviour.Follow,
+            NpcBehaviour.Gather,
+            NpcBehaviour.Defend,
+            NpcBehaviour.Attack,
+            NpcBehaviour.Idle,
+            NpcBehaviour.Wander
+        };
+
+        int columns = 2;
+        float buttonWidth = (width - 36f) / columns;
+        float buttonHeight = 44f;
+
+        for (int i = 0; i < behaviours.Length; i++)
+        {
+            int row = i / columns;
+            int col = i % columns;
+            Rect buttonRect = new Rect(window.x + 12f + col * buttonWidth, window.y + 58f + row * (buttonHeight + 8f), buttonWidth - 8f, buttonHeight);
+            if (GUI.Button(buttonRect, behaviours[i].ToString()))
+            {
+                ApplyNpcBehaviourCommand(behaviours[i]);
+            }
+        }
+
+        if (GUI.Button(new Rect(window.x + width - 90f, window.y + height - 40f, 78f, 28f), "Close"))
+        {
+            CloseNpcCommandMenu();
+        }
+
+        if (!string.IsNullOrEmpty(npcCommandStatus))
+        {
+            GUI.Label(new Rect(window.x + 12f, window.y + height - 38f, width - 110f, 30f), npcCommandStatus);
         }
     }
 

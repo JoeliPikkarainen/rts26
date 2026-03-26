@@ -67,8 +67,8 @@ public class Inventory : MonoBehaviour
         }
     }
 
-    public Dictionary<string, ItemData> GetAllItems()
+    public List<ItemData> GetAllItems()
     {
-        return items;
+        return new List<ItemData>(items.Values);
     }
 }
