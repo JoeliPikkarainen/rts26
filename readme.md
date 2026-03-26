@@ -37,8 +37,8 @@ Game loop:
 | NPC Task Assignment     | NPC command menu implemented with Follow, Idle, Gather, Defend, Attack, and Wander behavior assignment.                                  | Done (Demo) |
 | NPC Gather Loop         | Gather AI implemented: search gatherables, move to resource, gather by damage, pick up dropped items into NPC inventory.                 | Done (Demo) |
 | Enemy NPC Combat        | Hostile NPC behavior implemented with autonomous target search, attack, and player/NPC damage handling.                                  | Done (Demo) |
-| Resource (Stone)        | Add rock gather nodes, stone pickup item, and stone costs in selected buildings/recipes.                                                 | In Progress |
-| Gather Target Selection | Add gather submenu for selecting preferred resource type or fallback to closest gatherable target.                                        | Planned     |
+| Resource (Stone)        | Add rock gather nodes, stone pickup item, and stone costs in selected buildings/recipes.                                                 | Done (Demo) |
+| Gather Target Selection | Add gather submenu for selecting preferred resource type or fallback to closest gatherable target.                                       | Done (Demo) |
 | Resource Storage        | Add storage buildings/chests and transfer flow between player inventory and base storage.                                                | Planned     |
 | Base Defense Structures | Add towers and wall segments with simple placement and blocking/collision rules.                                                         | Planned     |
 | Enemy Wave/AI           | Add wave spawning, scaling difficulty, and timing system to pressure base defense loop.                                                  | Planned     |
