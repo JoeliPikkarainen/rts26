@@ -288,23 +288,13 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
 
     void TryInteract()
     {
-        Ray cameraRay = GetCrosshairRay();
-        Vector3 aimPoint = cameraRay.origin + cameraRay.direction * 1000f;
-        if (RaycastIgnoreSelf(cameraRay, 1000f, out RaycastHit cameraHit))
-            aimPoint = cameraHit.point;
+        BuildPlayerAimRayFromCrosshair(1000f, false, out Ray cameraRay, out Ray playerRay, out Vector3 playerPos, out bool hasCameraHit, out RaycastHit cameraHit);
 
-        Vector3 playerPos = transform.position + Vector3.up * 1.0f;
-        Vector3 playerToAim = (aimPoint - playerPos).normalized;
-        if (playerToAim.sqrMagnitude < 0.0001f) playerToAim = transform.forward;
-        Ray playerRay = new Ray(playerPos, playerToAim);
+        DrawDebugRay(cameraRay.origin, cameraRay.direction, 1000f, cameraRayRenderer, Color.magenta);
+        DrawDebugRay(playerRay.origin, playerRay.direction, interactRange, playerRayRenderer, Color.cyan);
 
-        Vector3 flatAim = new Vector3(playerToAim.x, 0, playerToAim.z);
-        if (flatAim.sqrMagnitude > 0.0001f)
-            transform.rotation = Quaternion.LookRotation(flatAim, Vector3.up);
-
-        if (!RaycastIgnoreSelf(playerRay, interactRange, out RaycastHit hit))
+        if (!TryGetCrosshairInteractionHit(interactRange, out RaycastHit hit, playerPos, hasCameraHit, cameraHit))
         {
-            TryPickup();
             return;
         }
 
@@ -458,42 +448,12 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
 
     void TryPickup()
     {
-        // Cast ray FROM CAMERA through crosshair - defines AIM DIRECTION
-        Ray cameraRay = GetCrosshairRay();
-        float cameraRayDistance = 1000f; // Infinite aiming direction
-        Vector3 aimPoint = cameraRay.origin + cameraRay.direction * cameraRayDistance;
-        
-        // Debug: Draw camera ray showing aim direction (magenta)
-        DrawDebugRay(cameraRay.origin, cameraRay.direction, cameraRayDistance, cameraRayRenderer, Color.magenta);
-        
-        // Find where camera is looking (endpoint for player to aim toward)
-        // If camera ray hits ANY collider, that first hit point becomes pickup aimpoint.
-        if (RaycastIgnoreSelf(cameraRay, cameraRayDistance, out RaycastHit cameraHit))
-        {
-            aimPoint = cameraHit.point;
-        }
- 
-        // Always build and test player pickup ray (debug + logic)
-        Vector3 playerPos = transform.position + Vector3.up * 1.0f;
-        Vector3 playerToAim = (aimPoint - playerPos).normalized;
-        if (playerToAim.sqrMagnitude < 0.0001f)
-        {
-            playerToAim = transform.forward;
-        }
-        Ray playerRay = new Ray(playerPos, playerToAim);
+        BuildPlayerAimRayFromCrosshair(1000f, false, out Ray cameraRay, out Ray playerRay, out Vector3 playerPos, out bool hasCameraHit, out RaycastHit cameraHit);
 
-        // Rotate player toward aim direction (snap immediately — this is a single-frame action)
-        Vector3 flatAim = new Vector3(playerToAim.x, 0, playerToAim.z);
-        if (flatAim.sqrMagnitude > 0.0001f)
-        {
-            transform.rotation = Quaternion.LookRotation(flatAim, Vector3.up);
-        }
-
-        // Debug line draw - ALWAYS draw player ray in cyan (the pickup attempt)
+        DrawDebugRay(cameraRay.origin, cameraRay.direction, 1000f, cameraRayRenderer, Color.magenta);
         DrawDebugRay(playerRay.origin, playerRay.direction, pickupRange, playerRayRenderer, Color.cyan);
 
-        // Check for pickable items - ONLY if player ray actually hits something
-        if (RaycastIgnoreSelf(playerRay, pickupRange, out RaycastHit hit))
+        if (TryGetCrosshairInteractionHit(pickupRange, out RaycastHit hit, playerPos, hasCameraHit, cameraHit))
         {
             Debug.Log("Pick up ray reached object: " + hit.collider.gameObject.name + " " + hit.collider.gameObject.tag);
 
@@ -530,6 +490,55 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         renderer.endColor = Color.white;  // Gradient to white to show direction
         renderer.SetPosition(0, origin);
         renderer.SetPosition(1, origin + direction * distance);
+    }
+
+    void BuildPlayerAimRayFromCrosshair(float cameraRayDistance, bool rotatePlayer, out Ray cameraRay, out Ray playerRay, out Vector3 playerPos, out bool hasCameraHit, out RaycastHit cameraHit)
+    {
+        cameraRay = GetCrosshairRay();
+        Vector3 aimPoint = cameraRay.origin + cameraRay.direction * cameraRayDistance;
+
+        hasCameraHit = RaycastIgnoreSelf(cameraRay, cameraRayDistance, out cameraHit);
+        if (hasCameraHit)
+        {
+            aimPoint = cameraHit.point;
+        }
+
+        playerPos = transform.position + Vector3.up * 1.0f;
+        Vector3 playerToAim = hasCameraHit ? (aimPoint - playerPos).normalized : cameraRay.direction;
+        if (playerToAim.sqrMagnitude < 0.0001f)
+        {
+            playerToAim = transform.forward;
+        }
+
+        playerRay = new Ray(playerPos, playerToAim);
+
+        if (rotatePlayer)
+        {
+            Vector3 flatAim = new Vector3(playerToAim.x, 0, playerToAim.z);
+            if (flatAim.sqrMagnitude > 0.0001f)
+            {
+                transform.rotation = Quaternion.LookRotation(flatAim, Vector3.up);
+            }
+        }
+    }
+
+    bool TryGetCrosshairInteractionHit(float maxRange, out RaycastHit hit, Vector3 playerPos, bool hasCameraHit, RaycastHit cameraHit)
+    {
+        hit = default;
+
+        if (!hasCameraHit)
+        {
+            return false;
+        }
+
+        float playerDistanceToCameraTarget = Vector3.Distance(playerPos, cameraHit.point);
+        if (playerDistanceToCameraTarget <= maxRange)
+        {
+            hit = cameraHit;
+            return true;
+        }
+
+        return false;
     }
 
     Ray GetCrosshairRay()
