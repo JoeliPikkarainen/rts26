@@ -22,6 +22,8 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
     [SerializeField] private float interactRange = 10f;
     [SerializeField] private float pickupRange = 2.5f; // Actual pickup reach distance
     [SerializeField] private int damage = 1;
+    [SerializeField] private float actionCooldown = 0.55f;
+    [SerializeField] private float attackSpeedMultiplier = 1f;
     [SerializeField] private int maxHealth = 100;
     [SerializeField] private float rotationSpeed = 200f; // how fast player rotates toward movement
     [SerializeField] private bool showCrosshair = true;
@@ -58,6 +60,7 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
     private bool isNpcGatherTypeMenuOpen;
     private INpc selectedNpcForCommand;
     private string npcCommandStatus = string.Empty;
+    private float actionTimer;
 
     void Start()
     {
@@ -106,6 +109,8 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
 
     void Update()
     {
+        actionTimer -= Time.deltaTime;
+
         Vector2 move = Keyboard.current != null
             ? new Vector2(
                 (Keyboard.current.dKey.isPressed ? 1 : 0) - (Keyboard.current.aKey.isPressed ? 1 : 0),
@@ -243,6 +248,13 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
 
     void TryHit()
     {
+        if (actionTimer > 0f)
+        {
+            return;
+        }
+
+        actionTimer = GetEffectiveActionCooldown();
+
         // Cast ray FROM CAMERA through crosshair - defines AIM DIRECTION
         Ray cameraRay = GetCrosshairRay();
         float cameraRayDistance = 1000f; // Infinite aiming direction
@@ -707,6 +719,26 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         {
             Debug.Log("Player died.");
         }
+    }
+
+    public void SetActionCooldown(float cooldownSeconds)
+    {
+        actionCooldown = Mathf.Max(0.05f, cooldownSeconds);
+    }
+
+    public void SetAttackSpeedMultiplier(float multiplier)
+    {
+        attackSpeedMultiplier = Mathf.Max(0.1f, multiplier);
+    }
+
+    public void ModifyAttackSpeedMultiplier(float delta)
+    {
+        SetAttackSpeedMultiplier(attackSpeedMultiplier + delta);
+    }
+
+    float GetEffectiveActionCooldown()
+    {
+        return actionCooldown / Mathf.Max(0.1f, attackSpeedMultiplier);
     }
 
     void InitializeBuildOptions()

@@ -28,6 +28,7 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
     [SerializeField] private float pickupRange = 2.2f;
     [SerializeField] private LayerMask pickupMask = ~0;
     [SerializeField] private float actionCooldown = 1.5f;
+    [SerializeField] private float actionSpeedMultiplier = 1f;
     [Header("Wander")]
     [SerializeField] private float wanderRadius = 7f;
     [SerializeField] private float wanderArriveDistance = 0.5f;
@@ -67,7 +68,7 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
         npcInventory = GetComponent<Inventory>();
         rb = GetComponent<Rigidbody>();
         rb.constraints = RigidbodyConstraints.FreezeRotation;
-        actionTimer = actionCooldown;
+        actionTimer = GetEffectiveActionCooldown();
         wanderOrigin = transform.position;
         wanderPauseTimer = Random.Range(wanderPauseDurationRange.x, wanderPauseDurationRange.y);
 
@@ -151,6 +152,21 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
     }
 
     public GatherResourcePreference GetGatherPreference() => gatherPreference;
+
+    public void SetActionCooldown(float cooldownSeconds)
+    {
+        actionCooldown = Mathf.Max(0.05f, cooldownSeconds);
+    }
+
+    public void SetActionSpeedMultiplier(float multiplier)
+    {
+        actionSpeedMultiplier = Mathf.Max(0.1f, multiplier);
+    }
+
+    public void ModifyActionSpeedMultiplier(float delta)
+    {
+        SetActionSpeedMultiplier(actionSpeedMultiplier + delta);
+    }
 
     public void AttackTarget(GameObject target)
     {
@@ -322,7 +338,7 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
             TryPickupNearbyItem();
             return;
         }
-        actionTimer = actionCooldown;
+        actionTimer = GetEffectiveActionCooldown();
 
         // Match player-style interaction: gathering deals damage through the same hit event path.
         GameEvents.OnHit?.Invoke(new HitEvent(gameObject, gatherTarget, new HitEvent.HitCtx { dmg = attackDamage }));
@@ -473,7 +489,7 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
         }
 
         if (actionTimer > 0f) return;
-        actionTimer = actionCooldown;
+        actionTimer = GetEffectiveActionCooldown();
 
         IDamageable damageable = attackTarget.GetComponent<IDamageable>() ?? attackTarget.GetComponentInParent<IDamageable>();
         if (damageable != null)
@@ -528,6 +544,11 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
         }
 
         return target.GetComponentInParent<NpcController>();
+    }
+
+    float GetEffectiveActionCooldown()
+    {
+        return actionCooldown / Mathf.Max(0.1f, actionSpeedMultiplier);
     }
 
     void UpdateDefend()
