@@ -55,6 +55,7 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
     private Collider[] playerColliders;
     private string buildPlacementDebugReason = string.Empty;
     private bool isNpcCommandMenuOpen;
+    private bool isNpcGatherTypeMenuOpen;
     private INpc selectedNpcForCommand;
     private string npcCommandStatus = string.Empty;
 
@@ -340,6 +341,7 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
 
         selectedNpcForCommand = npc;
         isNpcCommandMenuOpen = true;
+        isNpcGatherTypeMenuOpen = false;
         npcCommandStatus = string.Empty;
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
@@ -348,6 +350,7 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
     void CloseNpcCommandMenu()
     {
         isNpcCommandMenuOpen = false;
+        isNpcGatherTypeMenuOpen = false;
         selectedNpcForCommand = null;
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
@@ -360,41 +363,64 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
             return;
         }
 
+        if (behaviour == NpcBehaviour.Gather)
+        {
+            isNpcGatherTypeMenuOpen = true;
+            npcCommandStatus = "Choose gather target type";
+            return;
+        }
+
         selectedNpcForCommand.SetBehaviour(behaviour);
         npcCommandStatus = $"{selectedNpcForCommand.GetDisplayName()} => {behaviour}";
 
-        if (behaviour == NpcBehaviour.Gather)
+        Debug.Log(npcCommandStatus);
+        CloseNpcCommandMenu();
+    }
+
+    void ApplyNpcGatherPreference(GatherResourcePreference preference)
+    {
+        if (!isNpcCommandMenuOpen || selectedNpcForCommand == null)
         {
-            GameObject gatherTarget = FindNearestGatherableTarget(selectedNpcForCommand as MonoBehaviour);
-            if (gatherTarget != null)
-            {
-                selectedNpcForCommand.GatherFrom(gatherTarget);
-                npcCommandStatus = $"{selectedNpcForCommand.GetDisplayName()} gathering {gatherTarget.name}";
-            }
-            else
-            {
-                npcCommandStatus = $"{selectedNpcForCommand.GetDisplayName()} searching for resources";
-            }
+            return;
+        }
+
+        selectedNpcForCommand.SetGatherPreference(preference);
+        selectedNpcForCommand.SetBehaviour(NpcBehaviour.Gather);
+
+        GameObject gatherTarget = FindNearestGatherableTarget(selectedNpcForCommand as MonoBehaviour, preference);
+        if (gatherTarget != null)
+        {
+            selectedNpcForCommand.GatherFrom(gatherTarget);
+            npcCommandStatus = $"{selectedNpcForCommand.GetDisplayName()} gathering {preference}: {gatherTarget.name}";
+        }
+        else
+        {
+            npcCommandStatus = $"{selectedNpcForCommand.GetDisplayName()} searching for {preference}";
         }
 
         Debug.Log(npcCommandStatus);
         CloseNpcCommandMenu();
     }
 
-    GameObject FindNearestGatherableTarget(MonoBehaviour npcBehaviour)
+    GameObject FindNearestGatherableTarget(MonoBehaviour npcBehaviour, GatherResourcePreference preference)
     {
         if (npcBehaviour == null)
         {
             return null;
         }
 
-        MonoBehaviour[] allBehaviours = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+        MonoBehaviour[] allBehaviours = FindObjectsByType<MonoBehaviour>();
         GameObject nearestTarget = null;
         float bestDistance = float.MaxValue;
 
         for (int i = 0; i < allBehaviours.Length; i++)
         {
             if (allBehaviours[i] is not IGatherable)
+            {
+                continue;
+            }
+
+            if (!MatchesGatherPreference(allBehaviours[i].gameObject, preference))
             {
                 continue;
             }
@@ -408,6 +434,26 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         }
 
         return nearestTarget;
+    }
+
+    bool MatchesGatherPreference(GameObject candidate, GatherResourcePreference preference)
+    {
+        if (candidate == null || preference == GatherResourcePreference.Closest)
+        {
+            return candidate != null;
+        }
+
+        if (preference == GatherResourcePreference.Tree)
+        {
+            return candidate.GetComponent<Tree>() != null || candidate.GetComponentInParent<Tree>() != null;
+        }
+
+        if (preference == GatherResourcePreference.Rock)
+        {
+            return candidate.GetComponent<RockNode>() != null || candidate.GetComponentInParent<RockNode>() != null;
+        }
+
+        return true;
     }
 
     void TryPickup()
@@ -1132,32 +1178,64 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         float width = 360f;
         float height = 260f;
         Rect window = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
-        GUI.Box(window, $"{selectedNpcForCommand.GetDisplayName()} Commands");
+        GUI.Box(window, isNpcGatherTypeMenuOpen ? $"{selectedNpcForCommand.GetDisplayName()} Gather" : $"{selectedNpcForCommand.GetDisplayName()} Commands");
 
-        GUI.Label(new Rect(window.x + 12f, window.y + 30f, width - 24f, 20f), "Select NPC behaviour");
-
-        NpcBehaviour[] behaviours = new[]
-        {
-            NpcBehaviour.Follow,
-            NpcBehaviour.Gather,
-            NpcBehaviour.Defend,
-            NpcBehaviour.Attack,
-            NpcBehaviour.Idle,
-            NpcBehaviour.Wander
-        };
+        GUI.Label(new Rect(window.x + 12f, window.y + 30f, width - 24f, 20f), isNpcGatherTypeMenuOpen ? "Select resource target" : "Select NPC behaviour");
 
         int columns = 2;
         float buttonWidth = (width - 36f) / columns;
         float buttonHeight = 44f;
 
-        for (int i = 0; i < behaviours.Length; i++)
+        if (isNpcGatherTypeMenuOpen)
         {
-            int row = i / columns;
-            int col = i % columns;
-            Rect buttonRect = new Rect(window.x + 12f + col * buttonWidth, window.y + 58f + row * (buttonHeight + 8f), buttonWidth - 8f, buttonHeight);
-            if (GUI.Button(buttonRect, behaviours[i].ToString()))
+            GatherResourcePreference[] gatherPreferences = new[]
             {
-                ApplyNpcBehaviourCommand(behaviours[i]);
+                GatherResourcePreference.Closest,
+                GatherResourcePreference.Tree,
+                GatherResourcePreference.Rock
+            };
+
+            for (int i = 0; i < gatherPreferences.Length; i++)
+            {
+                int row = i / columns;
+                int col = i % columns;
+                Rect buttonRect = new Rect(window.x + 12f + col * buttonWidth, window.y + 58f + row * (buttonHeight + 8f), buttonWidth - 8f, buttonHeight);
+                if (GUI.Button(buttonRect, gatherPreferences[i].ToString()))
+                {
+                    ApplyNpcGatherPreference(gatherPreferences[i]);
+                }
+            }
+        }
+        else
+        {
+            NpcBehaviour[] behaviours = new[]
+            {
+                NpcBehaviour.Follow,
+                NpcBehaviour.Gather,
+                NpcBehaviour.Defend,
+                NpcBehaviour.Attack,
+                NpcBehaviour.Idle,
+                NpcBehaviour.Wander
+            };
+
+            for (int i = 0; i < behaviours.Length; i++)
+            {
+                int row = i / columns;
+                int col = i % columns;
+                Rect buttonRect = new Rect(window.x + 12f + col * buttonWidth, window.y + 58f + row * (buttonHeight + 8f), buttonWidth - 8f, buttonHeight);
+                if (GUI.Button(buttonRect, behaviours[i].ToString()))
+                {
+                    ApplyNpcBehaviourCommand(behaviours[i]);
+                }
+            }
+        }
+
+        if (isNpcGatherTypeMenuOpen)
+        {
+            if (GUI.Button(new Rect(window.x + 12f, window.y + height - 40f, 78f, 28f), "Back"))
+            {
+                isNpcGatherTypeMenuOpen = false;
+                npcCommandStatus = string.Empty;
             }
         }
 
