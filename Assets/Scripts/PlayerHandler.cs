@@ -34,7 +34,7 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay
         Cursor.lockState = CursorLockMode.Locked;
         currentHealth = maxHealth;
 
-        // Setup Player Ray LineRenderer
+        // Setup Player Ray LineRenderer for E interact and hit debuggin
         GameObject playerRayGO = new GameObject("PlayerRayDebug");
         playerRayGO.transform.SetParent(transform);
         playerRayGO.transform.localPosition = Vector3.zero;
@@ -47,7 +47,7 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay
         playerRayRenderer.endColor = Color.white;
         playerRayRenderer.useWorldSpace = true;
 
-        // Setup Camera Ray LineRenderer
+        // Setup Camera Ray LineRenderer for line of sight and aiming debugging
         GameObject cameraRayGO = new GameObject("CameraRayDebug");
         cameraRayGO.transform.SetParent(transform);
         cameraRayGO.transform.localPosition = Vector3.zero;
@@ -179,9 +179,10 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay
         }
         Ray playerRay = new Ray(playerPos, playerToAim);
 
-        // Rotate player toward aim direction
-        Quaternion targetRot = Quaternion.LookRotation(new Vector3(playerToAim.x, 0, playerToAim.z), Vector3.up);
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
+        // Rotate player toward aim direction (snap immediately — this is a single-frame action)
+        Vector3 flatAim = new Vector3(playerToAim.x, 0, playerToAim.z);
+        if (flatAim.sqrMagnitude > 0.0001f)
+            transform.rotation = Quaternion.LookRotation(flatAim, Vector3.up);
 
         // Debug line draw - player ray in red, limited to weapon range
         DrawDebugRay(playerRay.origin, playerRay.direction, interactRange, playerRayRenderer, Color.red);
@@ -224,9 +225,12 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay
         }
         Ray playerRay = new Ray(playerPos, playerToAim);
 
-        // Rotate player toward aim direction
-        Quaternion targetRot = Quaternion.LookRotation(new Vector3(playerToAim.x, 0, playerToAim.z), Vector3.up);
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
+        // Rotate player toward aim direction (snap immediately — this is a single-frame action)
+        Vector3 flatAim = new Vector3(playerToAim.x, 0, playerToAim.z);
+        if (flatAim.sqrMagnitude > 0.0001f)
+        {
+            transform.rotation = Quaternion.LookRotation(flatAim, Vector3.up);
+        }
 
         // Debug line draw - ALWAYS draw player ray in cyan (the pickup attempt)
         DrawDebugRay(playerRay.origin, playerRay.direction, pickupRange, playerRayRenderer, Color.cyan);
