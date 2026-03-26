@@ -64,6 +64,7 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay
         inventory = GetComponent<Inventory>();
         mainCamera = Camera.main;
         Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
         currentHealth = maxHealth;
 
         // Setup Player Ray LineRenderer for E interact and hit debuggin

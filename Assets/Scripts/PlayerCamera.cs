@@ -24,6 +24,7 @@ public class PlayerCameraController : MonoBehaviour
     void Start()
     {
         Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
 
         yaw = transform.eulerAngles.y;       // initialize horizontal rotation
         pitch = initialAngle;                // initialize vertical rotation
@@ -33,6 +34,11 @@ public class PlayerCameraController : MonoBehaviour
 
     void Update()
     {
+        if (Cursor.lockState != CursorLockMode.Locked)
+        {
+            return;
+        }
+
         // Mouse input
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
