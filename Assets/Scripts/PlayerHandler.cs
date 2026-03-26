@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System;
 
 [RequireComponent(typeof(Inventory))]
-public class PlayerHandler : MonoBehaviour, ITextInfoOverlay
+public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
 {
     [System.Serializable]
     private class BuildOption
@@ -96,6 +96,11 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay
         this.tag = "Player";
         playerColliders = GetComponentsInChildren<Collider>();
         InitializeBuildOptions();
+    }
+
+    void OnEnable()
+    {
+        GameEvents.OnHit += HandleHit;
     }
 
     void Update()
@@ -306,7 +311,7 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay
         INpc npc = hit.collider.GetComponent<INpc>() ?? hit.collider.GetComponentInParent<INpc>();
         if (npc != null)
         {
-            if (npc.IsNeutral())
+            if (npc.IsNeutral() && npc.CanBeRecruited())
             {
                 npc.Recruit(gameObject);
                 Debug.Log($"Recruited {npc.GetDisplayName()}");
@@ -314,6 +319,10 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay
             else if (npc.GetOwner() == gameObject)
             {
                 OpenNpcCommandMenu(npc);
+            }
+            else if (!npc.CanBeRecruited())
+            {
+                Debug.Log($"{npc.GetDisplayName()} is hostile and cannot be recruited.");
             }
             return;
         }
@@ -612,10 +621,36 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay
 
     void OnDisable()
     {
+        GameEvents.OnHit -= HandleHit;
+
         if (buildPreviewInstance != null)
         {
             Destroy(buildPreviewInstance);
             buildPreviewInstance = null;
+        }
+    }
+
+    void HandleHit(HitEvent hit)
+    {
+        if (hit.dst != gameObject && (hit.dst == null || !hit.dst.transform.IsChildOf(transform)))
+        {
+            return;
+        }
+
+        TakeDamage(hit.ctx.dmg);
+    }
+
+    public void TakeDamage(int amount)
+    {
+        currentHealth -= amount;
+        if (currentHealth < 0)
+        {
+            currentHealth = 0;
+        }
+
+        if (currentHealth == 0)
+        {
+            Debug.Log("Player died.");
         }
     }
 
