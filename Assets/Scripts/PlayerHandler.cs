@@ -49,6 +49,8 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
     [SerializeField] private Color buildGhostInvalidColor = new Color(1f, 0.2f, 0.2f, 0.5f);
     [Header("Weapon Visuals")]
     [SerializeField] private Transform weaponSocketTransform; // Hand socket for weapon attachment
+    [Header("Debug")]
+    [SerializeField] private bool debugCameraRays = false;
 
     private Vector3 movementInput;
     private int currentHealth;
@@ -691,7 +693,14 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
     Ray GetCrosshairRay()
     {
         float crosshairScreenY = Screen.height * (1f - crosshairVerticalViewport);
-        return mainCamera.ScreenPointToRay(new Vector3(Screen.width / 2f, crosshairScreenY, 0f));
+        Ray ray = mainCamera.ScreenPointToRay(new Vector3(Screen.width / 2f, crosshairScreenY, 0f));
+
+        if (debugCameraRays)
+        {
+            Debug.Log($"[Camera] Pos: {mainCamera.transform.position}, Ray Origin: {ray.origin}, Match: {Vector3.Distance(mainCamera.transform.position, ray.origin) < 0.01f}");
+        }
+
+        return ray;
     }
 
     bool RaycastIgnoreSelf(Ray ray, float maxDistance, out RaycastHit closestHit)
@@ -1799,4 +1808,25 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         return $"Player\nHP: {currentHealth}/{maxHealth}\nDMG: {GetCurrentDamage()}\nWeapon: {weaponName}";
     }
 
+    void OnDrawGizmos()
+    {
+        if (!debugCameraRays || mainCamera == null)
+        {
+            return;
+        }
+
+        // Draw camera position as green sphere
+        Gizmos.color = Color.green;
+        Gizmos.DrawWireSphere(mainCamera.transform.position, 0.3f);
+
+        // Draw ray origin point as red sphere
+        float crosshairScreenY = Screen.height * (1f - crosshairVerticalViewport);
+        Ray rayFromScreenPoint = mainCamera.ScreenPointToRay(new Vector3(Screen.width / 2f, crosshairScreenY, 0f));
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(rayFromScreenPoint.origin, 0.25f);
+
+        // Draw ray direction as a line (magenta)
+        Gizmos.color = Color.magenta;
+        Gizmos.DrawLine(rayFromScreenPoint.origin, rayFromScreenPoint.origin + rayFromScreenPoint.direction * 50f);
+    }
 }

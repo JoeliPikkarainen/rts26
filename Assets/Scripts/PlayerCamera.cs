@@ -23,6 +23,13 @@ public class PlayerCameraController : MonoBehaviour
 
     void Start()
     {
+        if (cameraPivot == null || playerCamera == null)
+        {
+            Debug.LogError("PlayerCameraController missing camera references. Assign Camera Pivot and Player Camera in inspector.", this);
+            enabled = false;
+            return;
+        }
+
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
@@ -53,6 +60,11 @@ public class PlayerCameraController : MonoBehaviour
 
     void LateUpdate()
     {
+        if (cameraPivot == null || playerCamera == null)
+        {
+            return;
+        }
+
         // Smoothly follow the player
         cameraPivot.position = Vector3.Lerp(
             cameraPivot.position,
