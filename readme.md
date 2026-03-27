@@ -40,6 +40,15 @@ Game loop:
 | Resource (Stone)        | Add rock gather nodes, stone pickup item, and stone costs in selected buildings/recipes.                                                 | Done (Demo) |
 | Gather Target Selection | Add gather submenu for selecting preferred resource type or fallback to closest gatherable target.                                       | Done (Demo) |
 | Resource Storage        | Add storage buildings/chests and transfer flow between player inventory and base storage.                                                | Done (Demo) |
+| Storage Limits          | Storage chest inventory limits (total amount and unique item types) with inspector-driven tuning.                                        | Done (Demo) |
+| NPC Storage Deposit     | NPC gatherers now use smaller inventory limits and auto-deposit to nearest storage chest when full.                                      | Done (Demo) |
+| Equipment System        | Slot-based equipment system for Weapon/Chest/Legs with metadata-driven stat bonuses and equip events.                                   | Done (Demo) |
+| Weapon Foundation       | Abstract weapon base and sword implementation integrated with item metadata and combat stat calculation.                                  | Done (Demo) |
+| Crafting Table          | Buildable crafting table with craftable prefab list, cost checks, and interaction UI flow.                                               | Done (Demo) |
+| Prefab Recipe Costs     | Crafting costs now use prefab references (drag-and-drop) instead of string literals for safer recipe setup.                             | Done (Demo) |
+| Inventory UI            | Modal inventory UI (toggle key) with equipment slots, backpack listing, equip/unequip controls, and swap behavior.                      | Done (Demo) |
+| Equipped Weapon Visuals | Equipped weapon can spawn as world visual attached to player weapon socket for in-game representation.                                   | Done (Demo) |
+| World Creator           | Deterministic playtest world generator with optional ground generation and weighted spawning for environment/spawners/NPCs.              | Done (Demo) |
 | Base Defense Structures | Add towers and wall segments with simple placement and blocking/collision rules.                                                         | Planned     |
 | Enemy Wave/AI           | Add wave spawning, scaling difficulty, and timing system to pressure base defense loop.                                                  | Planned     |
 | Wardrum Powerup         | Implement wardrum effect to trigger temporary all-in NPC attack behavior.                                                                | Planned     |
