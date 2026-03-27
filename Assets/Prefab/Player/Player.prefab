@@ -264,6 +264,8 @@ MonoBehaviour:
   interactRange: 3
   pickupRange: 2.5
   damage: 1
+  actionCooldown: 0.55
+  attackSpeedMultiplier: 1
   maxHealth: 100
   rotationSpeed: 10
   showCrosshair: 1
@@ -276,7 +278,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   buildPrefabs:
-  - {fileID: 4211406503919537056, guid: a411eee448ee53f4299ca20c6d7c03b7, type: 3}
+  - {fileID: 4168645261038454558, guid: 88841087b690c3e40b2a6b3ec8ff15e0, type: 3}
   buildGhostValidColor: {r: 0.2, g: 1, b: 0.2, a: 0.5}
   buildGhostInvalidColor: {r: 1, g: 0.2, b: 0.2, a: 0.5}
 --- !u!114 &3909139195880257724

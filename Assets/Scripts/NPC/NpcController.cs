@@ -29,6 +29,10 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
     [SerializeField] private LayerMask pickupMask = ~0;
     [SerializeField] private float actionCooldown = 1.5f;
     [SerializeField] private float actionSpeedMultiplier = 1f;
+    [Header("Inventory")]
+    [SerializeField] private int inventoryLimit = 6;
+    [SerializeField] private float storageSearchRadius = 60f;
+    [SerializeField] private float storageStopDistance = 1.25f;
     [Header("Wander")]
     [SerializeField] private float wanderRadius = 7f;
     [SerializeField] private float wanderArriveDistance = 0.5f;
@@ -56,6 +60,7 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
     private Vector3 wanderTarget;
     private bool hasWanderTarget;
     private float wanderPauseTimer;
+    private StorageChestBuilding storageTarget;
 
     // -------------------------------------------------------------------------
     // Unity lifecycle
@@ -66,6 +71,10 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
         currentHealth = maxHealth;
         currentBehaviour = startBehaviour;
         npcInventory = GetComponent<Inventory>();
+        if (npcInventory != null)
+        {
+            npcInventory.SetMaxTotalItemCount(Mathf.Max(1, inventoryLimit));
+        }
         rb = GetComponent<Rigidbody>();
         rb.constraints = RigidbodyConstraints.FreezeRotation;
         actionTimer = GetEffectiveActionCooldown();
@@ -291,6 +300,12 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
 
     void UpdateGather()
     {
+        if (npcInventory != null && npcInventory.IsFull())
+        {
+            UpdateStorageDeposit();
+            return;
+        }
+
         gatherRetargetTimer -= Time.deltaTime;
 
         if (gatherTarget == null || !gatherTarget.activeInHierarchy)
@@ -345,6 +360,44 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
         TryPickupNearbyItem();
     }
 
+    void UpdateStorageDeposit()
+    {
+        if (storageTarget == null || !storageTarget.gameObject.activeInHierarchy)
+        {
+            storageTarget = FindNearestStorageChest();
+            if (storageTarget == null)
+            {
+                return;
+            }
+        }
+
+        float distanceToStorage = DistanceToTargetSurfaceXZ(storageTarget.gameObject);
+        float stopDistance = Mathf.Max(0.2f, storageStopDistance);
+        if (distanceToStorage > stopDistance)
+        {
+            MoveToward(storageTarget.transform.position, stopDistance);
+            return;
+        }
+
+        if (actionTimer > 0f)
+        {
+            return;
+        }
+
+        actionTimer = GetEffectiveActionCooldown();
+
+        bool depositedAny = storageTarget.DepositAllFrom(npcInventory);
+        if (!depositedAny)
+        {
+            // Chest cannot currently accept items, try another one next cycle.
+            storageTarget = null;
+            return;
+        }
+
+        storageTarget = null;
+        gatherTarget = null;
+    }
+
     float DistanceToTargetSurfaceXZ(GameObject target)
     {
         if (target == null)
@@ -396,6 +449,11 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
             }
 
             ItemData itemData = pickable.GetItemData();
+            if (itemData == null || npcInventory == null || !npcInventory.CanAddItem(itemData))
+            {
+                continue;
+            }
+
             GameObject itemObject = nearby[i].gameObject;
             GameEvents.OnPickup?.Invoke(new PickupEvent(gameObject, itemObject, itemData));
             pickable.OnPickup();
@@ -439,6 +497,41 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
         }
 
         return nearestTarget;
+    }
+
+    StorageChestBuilding FindNearestStorageChest()
+    {
+        StorageChestBuilding[] allStorageChests = FindObjectsByType<StorageChestBuilding>();
+        StorageChestBuilding nearest = null;
+        float bestDistance = float.MaxValue;
+
+        for (int i = 0; i < allStorageChests.Length; i++)
+        {
+            if (allStorageChests[i] == null || !allStorageChests[i].gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            Inventory storageInventory = allStorageChests[i].GetStorageInventory();
+            if (storageInventory == null)
+            {
+                continue;
+            }
+
+            float distance = Vector3.Distance(transform.position, allStorageChests[i].transform.position);
+            if (distance > storageSearchRadius)
+            {
+                continue;
+            }
+
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                nearest = allStorageChests[i];
+            }
+        }
+
+        return nearest;
     }
 
     bool MatchesGatherPreference(GameObject candidate)

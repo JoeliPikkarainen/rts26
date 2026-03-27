@@ -14,6 +14,14 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         public BuildCost[] costs;
     }
 
+    private enum InterfaceUi
+    {
+        NoUi,
+        EnvUi,
+        NpcUi,
+        ChestUi
+    }
+
     Rigidbody rb;
     Inventory inventory;
     Camera mainCamera;
@@ -59,6 +67,7 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
     private bool isNpcCommandMenuOpen;
     private bool isNpcGatherTypeMenuOpen;
     private INpc selectedNpcForCommand;
+    private StorageChestBuilding openedChest;
     private string npcCommandStatus = string.Empty;
     private float actionTimer;
 
@@ -107,6 +116,32 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         GameEvents.OnHit += HandleHit;
     }
 
+    InterfaceUi GetActiveInterfaceUi()
+    {
+        if (openedChest != null && openedChest.IsOpenBy(gameObject))
+        {
+            return InterfaceUi.ChestUi;
+        }
+
+        if (isNpcCommandMenuOpen)
+        {
+            return InterfaceUi.NpcUi;
+        }
+
+        if (showCrosshair || showDebugOverlay || enableBuildSystem)
+        {
+            return InterfaceUi.EnvUi;
+        }
+
+        return InterfaceUi.NoUi;
+    }
+
+    bool IsModalInterfaceOpen()
+    {
+        InterfaceUi activeUi = GetActiveInterfaceUi();
+        return activeUi == InterfaceUi.NpcUi || activeUi == InterfaceUi.ChestUi;
+    }
+
     void Update()
     {
         actionTimer -= Time.deltaTime;
@@ -131,12 +166,31 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
             return;
         }
 
-        if (isNpcCommandMenuOpen)
+        if (openedChest != null && !openedChest.IsOpenBy(gameObject))
+        {
+            openedChest = null;
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+
+        InterfaceUi activeUi = GetActiveInterfaceUi();
+
+        if (activeUi == InterfaceUi.NpcUi)
         {
             movementInput = Vector3.zero;
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
                 CloseNpcCommandMenu();
+            }
+            return;
+        }
+
+        if (activeUi == InterfaceUi.ChestUi)
+        {
+            movementInput = Vector3.zero;
+            if (Keyboard.current != null && (Keyboard.current.escapeKey.wasPressedThisFrame || Keyboard.current.eKey.wasPressedThisFrame))
+            {
+                CloseOpenedChest();
             }
             return;
         }
@@ -179,7 +233,7 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
 
     void FixedUpdate()
     {
-        if (isBuildMenuOpen)
+        if (isBuildMenuOpen || IsModalInterfaceOpen())
         {
             return;
         }
@@ -326,6 +380,19 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
             else if (!npc.CanBeRecruited())
             {
                 Debug.Log($"{npc.GetDisplayName()} is hostile and cannot be recruited.");
+            }
+            return;
+        }
+
+        // --- Storage chest interaction ---
+        StorageChestBuilding chest = hit.collider.GetComponent<StorageChestBuilding>() ?? hit.collider.GetComponentInParent<StorageChestBuilding>();
+        if (chest != null)
+        {
+            if (chest.TryOpen(gameObject))
+            {
+                openedChest = chest;
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
             }
             return;
         }
@@ -623,7 +690,9 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
 
     void OnGUI()
     {
-        if (showCrosshair)
+        InterfaceUi activeUi = GetActiveInterfaceUi();
+
+        if (showCrosshair && activeUi == InterfaceUi.EnvUi)
         {
             // Draw crosshair at adjustable height, centered horizontally
             float centerX = Screen.width / 2f;
@@ -634,7 +703,7 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         }
 
         // Draw all debug overlay info
-        if (showDebugOverlay && visibleOverlayObjects.Count > 0)
+        if (showDebugOverlay && activeUi == InterfaceUi.EnvUi && visibleOverlayObjects.Count > 0)
         {
             const float labelWidth = 200f;
             const float padding    = 8f;
@@ -682,19 +751,40 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
             }
         }
 
-        DrawBuildUI();
-        DrawNpcCommandUI();
+        if (activeUi == InterfaceUi.EnvUi)
+        {
+            DrawBuildUI();
+        }
+        else if (activeUi == InterfaceUi.NpcUi)
+        {
+            DrawNpcCommandUI();
+        }
     }
 
     void OnDisable()
     {
         GameEvents.OnHit -= HandleHit;
 
+        CloseOpenedChest();
+
         if (buildPreviewInstance != null)
         {
             Destroy(buildPreviewInstance);
             buildPreviewInstance = null;
         }
+    }
+
+    void CloseOpenedChest()
+    {
+        if (openedChest == null)
+        {
+            return;
+        }
+
+        openedChest.CloseChest(gameObject);
+        openedChest = null;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
     void HandleHit(HitEvent hit)
