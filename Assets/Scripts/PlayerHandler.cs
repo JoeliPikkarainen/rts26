@@ -756,6 +756,53 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         return hasFallback;
     }
 
+    void UiDrawText(Vector2 pos, string text, bool isHovered = false)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        const float minLabelWidth = 70f;
+        const float maxLabelWidth = 240f;
+        const float padding = 8f;
+
+        GUIStyle textStyle = new GUIStyle(GUI.skin.label);
+        textStyle.wordWrap = true;
+        textStyle.richText = false;
+        if (isHovered)
+        {
+            textStyle.fontStyle = FontStyle.Bold;
+            textStyle.fontSize = 14;
+        }
+
+        string[] textLines = text.Split('\n');
+        float widestLine = minLabelWidth;
+        for (int i = 0; i < textLines.Length; i++)
+        {
+            float lineWidth = textStyle.CalcSize(new GUIContent(textLines[i])).x;
+            if (lineWidth > widestLine)
+            {
+                widestLine = lineWidth;
+            }
+        }
+
+        float labelWidth = Mathf.Clamp(widestLine, minLabelWidth, maxLabelWidth);
+        float labelHeight = textStyle.CalcHeight(new GUIContent(text), labelWidth);
+        float boxWidth = labelWidth + padding * 2f;
+        float boxHeight = labelHeight + padding * 2f;
+
+        // Draw above the anchor position so it points at the world-space object.
+        float boxLeft = pos.x - boxWidth * 0.5f;
+        float boxTop = pos.y - boxHeight - 6f;
+
+        GUI.color = new Color(0f, 0f, 0f, 0.75f);
+        GUI.Box(new Rect(boxLeft, boxTop, boxWidth, boxHeight), "");
+
+        GUI.color = isHovered ? Color.yellow : Color.white;
+        GUI.Label(new Rect(boxLeft + padding, boxTop + padding, labelWidth, labelHeight), text, textStyle);
+    }
+
     void OnGUI()
     {
         InterfaceUi activeUi = GetActiveInterfaceUi();
@@ -773,9 +820,6 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         // Draw all debug overlay info
         if (showDebugOverlay && activeUi == InterfaceUi.EnvUi && visibleOverlayObjects.Count > 0)
         {
-            const float labelWidth = 200f;
-            const float padding    = 8f;
-
             foreach (var kvp in visibleOverlayObjects)
             {
                 ITextInfoOverlay overlay = kvp.Key;
@@ -793,29 +837,7 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
 
                 bool isHovered = (overlay == currentHoveredObject);
 
-                GUIStyle textStyle = new GUIStyle(GUI.skin.label);
-                textStyle.wordWrap  = true;
-                textStyle.richText  = false;
-                if (isHovered)
-                {
-                    textStyle.fontStyle = FontStyle.Bold;
-                    textStyle.fontSize  = 14;
-                }
-
-                // Measure text so the box always fits every line.
-                float labelHeight = textStyle.CalcHeight(new GUIContent(infoText), labelWidth);
-                float boxWidth    = labelWidth + padding * 2f;
-                float boxHeight   = labelHeight + padding * 2f;
-
-                // Place box just above the world-space anchor point.
-                float boxLeft = guiX - boxWidth * 0.5f;
-                float boxTop  = guiY - boxHeight - 6f;
-
-                GUI.color = new Color(0f, 0f, 0f, 0.75f);
-                GUI.Box(new Rect(boxLeft, boxTop, boxWidth, boxHeight), "");
-
-                GUI.color = isHovered ? Color.yellow : Color.white;
-                GUI.Label(new Rect(boxLeft + padding, boxTop + padding, labelWidth, labelHeight), infoText, textStyle);
+                UiDrawText(new Vector2(guiX, guiY), infoText, isHovered);
             }
         }
 
