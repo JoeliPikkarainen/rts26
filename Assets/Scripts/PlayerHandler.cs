@@ -19,7 +19,9 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         NoUi,
         EnvUi,
         NpcUi,
-        ChestUi
+        ChestUi,
+        CraftingUi,
+        InventoryUi
     }
 
     Rigidbody rb;
@@ -45,6 +47,8 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
     [SerializeField] private GameObject[] buildPrefabs;
     [SerializeField] private Color buildGhostValidColor = new Color(0.2f, 1f, 0.2f, 0.5f);
     [SerializeField] private Color buildGhostInvalidColor = new Color(1f, 0.2f, 0.2f, 0.5f);
+    [Header("Weapon Visuals")]
+    [SerializeField] private Transform weaponSocketTransform; // Hand socket for weapon attachment
 
     private Vector3 movementInput;
     private int currentHealth;
@@ -66,10 +70,15 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
     private string buildPlacementDebugReason = string.Empty;
     private bool isNpcCommandMenuOpen;
     private bool isNpcGatherTypeMenuOpen;
+    private bool isInventoryMenuOpen;
     private INpc selectedNpcForCommand;
     private StorageChestBuilding openedChest;
+    private CraftingTableBuilding openedCraftingTable;
     private string npcCommandStatus = string.Empty;
     private float actionTimer;
+    private int equipmentDamageBonus;
+    private float equipmentAttackSpeedMultiplier = 1f;
+    private GameObject equippedWeaponVisualInstance;
 
     void Start()
     {
@@ -109,6 +118,10 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         this.tag = "Player";
         playerColliders = GetComponentsInChildren<Collider>();
         InitializeBuildOptions();
+
+        inventory.OnEquipmentChanged += HandleEquipmentChanged;
+        RefreshEquipmentStats();
+        RefreshWeaponVisual();
     }
 
     void OnEnable()
@@ -118,6 +131,16 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
 
     InterfaceUi GetActiveInterfaceUi()
     {
+        if (isInventoryMenuOpen)
+        {
+            return InterfaceUi.InventoryUi;
+        }
+
+        if (openedCraftingTable != null && openedCraftingTable.IsOpenBy(gameObject))
+        {
+            return InterfaceUi.CraftingUi;
+        }
+
         if (openedChest != null && openedChest.IsOpenBy(gameObject))
         {
             return InterfaceUi.ChestUi;
@@ -139,7 +162,7 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
     bool IsModalInterfaceOpen()
     {
         InterfaceUi activeUi = GetActiveInterfaceUi();
-        return activeUi == InterfaceUi.NpcUi || activeUi == InterfaceUi.ChestUi;
+        return activeUi == InterfaceUi.NpcUi || activeUi == InterfaceUi.ChestUi || activeUi == InterfaceUi.CraftingUi || activeUi == InterfaceUi.InventoryUi;
     }
 
     void Update()
@@ -155,6 +178,11 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
 
         movementInput = new Vector3(move.x, 0f, move.y);
 
+        if (Keyboard.current != null && Keyboard.current.iKey.wasPressedThisFrame)
+        {
+            ToggleInventoryMenu();
+        }
+
         if (enableBuildSystem && Keyboard.current != null && Keyboard.current.bKey.wasPressedThisFrame)
         {
             ToggleBuildMenu();
@@ -169,6 +197,13 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         if (openedChest != null && !openedChest.IsOpenBy(gameObject))
         {
             openedChest = null;
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+
+        if (openedCraftingTable != null && !openedCraftingTable.IsOpenBy(gameObject))
+        {
+            openedCraftingTable = null;
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
@@ -191,6 +226,26 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
             if (Keyboard.current != null && (Keyboard.current.escapeKey.wasPressedThisFrame || Keyboard.current.eKey.wasPressedThisFrame))
             {
                 CloseOpenedChest();
+            }
+            return;
+        }
+
+        if (activeUi == InterfaceUi.CraftingUi)
+        {
+            movementInput = Vector3.zero;
+            if (Keyboard.current != null && (Keyboard.current.escapeKey.wasPressedThisFrame || Keyboard.current.eKey.wasPressedThisFrame))
+            {
+                CloseOpenedCraftingTable();
+            }
+            return;
+        }
+
+        if (activeUi == InterfaceUi.InventoryUi)
+        {
+            movementInput = Vector3.zero;
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            {
+                CloseInventoryMenu();
             }
             return;
         }
@@ -345,7 +400,7 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         if (RaycastIgnoreSelf(playerRay, interactRange, out RaycastHit hit))
         {
             // Context of the hit
-            HitEvent.HitCtx ctx = new HitEvent.HitCtx { dmg = damage };
+            HitEvent.HitCtx ctx = new HitEvent.HitCtx { dmg = GetCurrentDamage() };
 
             // Send event handler
             GameEvents.OnHit?.Invoke(new HitEvent(this.gameObject, hit.collider.gameObject, ctx));
@@ -380,6 +435,19 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
             else if (!npc.CanBeRecruited())
             {
                 Debug.Log($"{npc.GetDisplayName()} is hostile and cannot be recruited.");
+            }
+            return;
+        }
+
+        // --- Storage chest interaction ---
+        CraftingTableBuilding craftingTable = hit.collider.GetComponent<CraftingTableBuilding>() ?? hit.collider.GetComponentInParent<CraftingTableBuilding>();
+        if (craftingTable != null)
+        {
+            if (craftingTable.TryOpen(gameObject))
+            {
+                openedCraftingTable = craftingTable;
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
             }
             return;
         }
@@ -759,13 +827,30 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         {
             DrawNpcCommandUI();
         }
+        else if (activeUi == InterfaceUi.InventoryUi)
+        {
+            DrawInventoryUI();
+        }
     }
 
     void OnDisable()
     {
         GameEvents.OnHit -= HandleHit;
 
+        if (inventory != null)
+        {
+            inventory.OnEquipmentChanged -= HandleEquipmentChanged;
+        }
+
+        CloseInventoryMenu();
         CloseOpenedChest();
+        CloseOpenedCraftingTable();
+
+        if (equippedWeaponVisualInstance != null)
+        {
+            Destroy(equippedWeaponVisualInstance);
+            equippedWeaponVisualInstance = null;
+        }
 
         if (buildPreviewInstance != null)
         {
@@ -785,6 +870,157 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         openedChest = null;
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+    }
+
+    void CloseOpenedCraftingTable()
+    {
+        if (openedCraftingTable == null)
+        {
+            return;
+        }
+
+        openedCraftingTable.CloseTable(gameObject);
+        openedCraftingTable = null;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
+    void ToggleInventoryMenu()
+    {
+        if (GetActiveInterfaceUi() == InterfaceUi.InventoryUi)
+        {
+            CloseInventoryMenu();
+            return;
+        }
+
+        InterfaceUi activeUi = GetActiveInterfaceUi();
+        if (activeUi != InterfaceUi.EnvUi && activeUi != InterfaceUi.NoUi)
+        {
+            return;
+        }
+
+        isInventoryMenuOpen = true;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+
+    void CloseInventoryMenu()
+    {
+        if (!isInventoryMenuOpen)
+        {
+            return;
+        }
+
+        isInventoryMenuOpen = false;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
+    void HandleEquipmentChanged()
+    {
+        RefreshEquipmentStats();
+        RefreshWeaponVisual();
+    }
+
+    void RefreshEquipmentStats()
+    {
+        equipmentDamageBonus = 0;
+        equipmentAttackSpeedMultiplier = 1f;
+
+        if (inventory == null)
+        {
+            return;
+        }
+
+        ItemData equippedWeapon = inventory.GetEquippedItem(EquipSlot.Weapon);
+        if (equippedWeapon == null)
+        {
+            return;
+        }
+
+        if (equippedWeapon.isEquipable)
+        {
+            equipmentDamageBonus = equippedWeapon.weaponDamageBonus;
+            equipmentAttackSpeedMultiplier = Mathf.Max(0.1f, equippedWeapon.weaponAttackSpeedMultiplier);
+            return;
+        }
+
+        if (equippedWeapon.prefab == null)
+        {
+            return;
+        }
+
+        WeaponBase weapon = equippedWeapon.prefab.GetComponent<WeaponBase>() ?? equippedWeapon.prefab.GetComponentInChildren<WeaponBase>();
+        if (weapon == null)
+        {
+            return;
+        }
+
+        equipmentDamageBonus = weapon.GetDamageBonus();
+        equipmentAttackSpeedMultiplier = weapon.GetAttackSpeedMultiplier();
+    }
+
+    void RefreshWeaponVisual()
+    {
+        // Despawn any existing weapon visual
+        if (equippedWeaponVisualInstance != null)
+        {
+            Destroy(equippedWeaponVisualInstance);
+            equippedWeaponVisualInstance = null;
+        }
+
+        if (inventory == null)
+        {
+            return;
+        }
+
+        ItemData equippedWeapon = inventory.GetEquippedItem(EquipSlot.Weapon);
+        if (equippedWeapon == null || weaponSocketTransform == null)
+        {
+            return;
+        }
+
+        // Try to get visual prefab from metadata first
+        GameObject visualPrefab = null;
+        if (equippedWeapon.prefab != null)
+        {
+            WeaponBase weapon = equippedWeapon.prefab.GetComponent<WeaponBase>() ?? equippedWeapon.prefab.GetComponentInChildren<WeaponBase>();
+            if (weapon != null)
+            {
+                visualPrefab = weapon.GetEquippedVisualPrefab();
+            }
+
+            // If no visual prefab defined, use the weapon prefab itself as the visual
+            if (visualPrefab == null)
+            {
+                visualPrefab = equippedWeapon.prefab;
+            }
+        }
+
+        if (visualPrefab != null)
+        {
+            equippedWeaponVisualInstance = Instantiate(visualPrefab, weaponSocketTransform);
+            equippedWeaponVisualInstance.transform.localPosition = Vector3.zero;
+            equippedWeaponVisualInstance.transform.localRotation = Quaternion.identity;
+
+            // Disable physics components on the visual so it doesn't interfere
+            Rigidbody visualRb = equippedWeaponVisualInstance.GetComponent<Rigidbody>();
+            if (visualRb != null)
+            {
+                visualRb.isKinematic = true;
+            }
+
+            Collider[] visualColliders = equippedWeaponVisualInstance.GetComponentsInChildren<Collider>();
+            foreach (Collider col in visualColliders)
+            {
+                col.enabled = false;
+            }
+        }
+    }
+
+    int GetCurrentDamage()
+    {
+        return Mathf.Max(1, damage + equipmentDamageBonus);
     }
 
     void HandleHit(HitEvent hit)
@@ -828,7 +1064,7 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
 
     float GetEffectiveActionCooldown()
     {
-        return actionCooldown / Mathf.Max(0.1f, attackSpeedMultiplier);
+        return actionCooldown / Mathf.Max(0.1f, attackSpeedMultiplier * equipmentAttackSpeedMultiplier);
     }
 
     void InitializeBuildOptions()
@@ -1381,9 +1617,164 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         }
     }
 
+    void DrawInventoryUI()
+    {
+        if (!isInventoryMenuOpen || inventory == null)
+        {
+            return;
+        }
+
+        float width = 760f;
+        float height = 480f;
+        Rect window = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
+        GUI.Box(window, "Inventory (I/Esc to close)");
+
+        DrawEquipmentPanel(new Rect(window.x + 12f, window.y + 32f, width - 24f, 110f));
+        DrawInventoryItemsPanel(new Rect(window.x + 12f, window.y + 148f, width - 24f, height - 196f));
+
+        if (GUI.Button(new Rect(window.x + width - 92f, window.y + height - 36f, 78f, 24f), "Close"))
+        {
+            CloseInventoryMenu();
+        }
+    }
+
+    void DrawEquipmentPanel(Rect panel)
+    {
+        GUI.Box(panel, "Equipment Slots");
+
+        DrawEquipSlotRow(new Rect(panel.x + 10f, panel.y + 24f, panel.width - 20f, 24f), EquipSlot.Weapon, "Weapon");
+        DrawEquipSlotRow(new Rect(panel.x + 10f, panel.y + 48f, panel.width - 20f, 24f), EquipSlot.Chest, "Chest");
+        DrawEquipSlotRow(new Rect(panel.x + 10f, panel.y + 72f, panel.width - 20f, 24f), EquipSlot.Legs, "Legs");
+    }
+
+    void DrawEquipSlotRow(Rect rowRect, EquipSlot slot, string slotLabel)
+    {
+        ItemData equipped = inventory.GetEquippedItem(slot);
+        string itemLabel = equipped != null ? GetItemDisplayName(equipped) : "(empty)";
+
+        GUI.Label(new Rect(rowRect.x, rowRect.y, rowRect.width * 0.72f, rowRect.height), slotLabel + ": " + itemLabel);
+
+        if (equipped != null)
+        {
+            if (GUI.Button(new Rect(rowRect.x + rowRect.width - 86f, rowRect.y, 80f, rowRect.height), "Unequip"))
+            {
+                inventory.UnequipSlot(slot);
+            }
+        }
+    }
+
+    void DrawInventoryItemsPanel(Rect panel)
+    {
+        GUI.Box(panel, "Backpack");
+
+        List<ItemData> items = inventory.GetAllItems();
+        if (items.Count == 0)
+        {
+            GUI.Label(new Rect(panel.x + 10f, panel.y + 24f, panel.width - 20f, 24f), "Empty");
+            return;
+        }
+
+        float rowY = panel.y + 24f;
+        float rowHeight = 26f;
+        float maxY = panel.y + panel.height - 8f;
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            ItemData item = items[i];
+            if (item == null)
+            {
+                continue;
+            }
+
+            if (rowY + rowHeight > maxY)
+            {
+                GUI.Label(new Rect(panel.x + 10f, rowY, panel.width - 20f, 24f), "...");
+                break;
+            }
+
+            string label = GetItemDisplayName(item) + " x" + item.quantity;
+            GUI.Label(new Rect(panel.x + 10f, rowY, panel.width * 0.55f, rowHeight), label);
+
+            if (TryGetItemEquipSlot(item, out EquipSlot itemSlot))
+            {
+                string buttonText = inventory.GetEquippedItem(itemSlot) == null ? "Equip" : "Equip Swap";
+                if (GUI.Button(new Rect(panel.x + panel.width - 110f, rowY + 1f, 96f, rowHeight - 2f), buttonText))
+                {
+                    inventory.TryEquipItem(item.itemType);
+                }
+            }
+
+            rowY += rowHeight;
+        }
+    }
+
+    bool TryGetItemEquipSlot(ItemData item, out EquipSlot slot)
+    {
+        slot = default;
+        if (item == null)
+        {
+            return false;
+        }
+
+        if (item.isEquipable)
+        {
+            slot = item.equipSlot;
+            return true;
+        }
+
+        if (item.prefab == null)
+        {
+            return false;
+        }
+
+        IEquipable equipable = item.prefab.GetComponent<IEquipable>() ?? item.prefab.GetComponentInChildren<IEquipable>();
+        if (equipable == null)
+        {
+            return false;
+        }
+
+        slot = equipable.GetEquipSlot();
+        return true;
+    }
+
+    string GetItemDisplayName(ItemData item)
+    {
+        if (item == null)
+        {
+            return "Unknown";
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.equipDisplayName))
+        {
+            return item.equipDisplayName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.itemType))
+        {
+            return item.itemType;
+        }
+
+        if (item.prefab != null)
+        {
+            return item.prefab.name;
+        }
+
+        return "Unknown";
+    }
+
     public string GetInfoText()
     {
-        return $"Player\nHP: {currentHealth}/{maxHealth}\nDMG: {damage}";
+        string weaponName = "None";
+        if (inventory != null)
+        {
+            ItemData equippedWeapon = inventory.GetEquippedItem(EquipSlot.Weapon);
+            if (equippedWeapon != null)
+            {
+                weaponName = equippedWeapon.itemType;
+            }
+        }
+
+        return $"Player\nHP: {currentHealth}/{maxHealth}\nDMG: {GetCurrentDamage()}\nWeapon: {weaponName}";
     }
 
 }

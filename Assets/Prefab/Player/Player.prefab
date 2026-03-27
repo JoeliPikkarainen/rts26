@@ -39,6 +39,7 @@ Transform:
   m_Children:
   - {fileID: 1800050712886769402}
   - {fileID: 2849777695293750927}
+  - {fileID: 2471645061560720366}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!23 &7695851293638709337
@@ -109,8 +110,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Size: {x: 1, y: 2, z: 1}
+  m_Center: {x: 0, y: 1.5, z: 0}
 --- !u!54 &4426905798079744457
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -269,18 +270,20 @@ MonoBehaviour:
   maxHealth: 100
   rotationSpeed: 10
   showCrosshair: 1
-  crosshairVerticalViewport: 0.4
+  crosshairVerticalViewport: 0.3
   showDebugOverlay: 1
   enableBuildSystem: 1
-  buildRange: 12
+  buildRange: 3
   buildGridSnap: {x: 1, y: 0, z: 1}
   buildPlacementMask:
     serializedVersion: 2
     m_Bits: 4294967295
   buildPrefabs:
   - {fileID: 4168645261038454558, guid: 88841087b690c3e40b2a6b3ec8ff15e0, type: 3}
+  - {fileID: 4129618807708620643, guid: 91e174cd4af88984cb8a1f0345a87fc7, type: 3}
   buildGhostValidColor: {r: 0.2, g: 1, b: 0.2, a: 0.5}
   buildGhostInvalidColor: {r: 1, g: 0.2, b: 0.2, a: 0.5}
+  weaponSocketTransform: {fileID: 2471645061560720366}
 --- !u!114 &3909139195880257724
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -311,6 +314,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6c688c684f9d92247bbf260c895d6724, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Inventory
+  maxTotalItemCount: 0
+  maxUniqueItemTypeCount: 0
 --- !u!33 &-2347873215415501327
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -319,6 +324,37 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1772290428753285830}
   m_Mesh: {fileID: 0}
+--- !u!1 &3894002398443291072
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2471645061560720366}
+  m_Layer: 0
+  m_Name: WeaponTransform
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2471645061560720366
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3894002398443291072}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.884, y: 1.445, z: -0.336}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1879574635062363278}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &5117424851710837338
 GameObject:
   m_ObjectHideFlags: 0

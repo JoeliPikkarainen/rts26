@@ -46,14 +46,7 @@ public class StorageChestBuilding : MonoBehaviour, IBuildable, ITextInfoOverlay
                 continue;
             }
 
-            if (!chestInventory.CanAddItem(new ItemData(item.itemType, item.quantity, item.prefab)))
-            {
-                continue;
-            }
-
-            chestInventory.AddItem(new ItemData(item.itemType, item.quantity, item.prefab));
-            sourceInventory.RemoveItem(item.itemType, item.quantity);
-            movedAny = true;
+            movedAny |= sourceInventory.TryMoveAllOfTypeTo(chestInventory, item.itemType);
         }
 
         return movedAny;
@@ -234,13 +227,7 @@ public class StorageChestBuilding : MonoBehaviour, IBuildable, ITextInfoOverlay
             return;
         }
 
-        if (!to.CanAddItem(new ItemData(item.itemType, 1, item.prefab)))
-        {
-            return;
-        }
-
-        to.AddItem(new ItemData(item.itemType, 1, item.prefab));
-        from.RemoveItem(itemType, 1);
+        from.TryMoveItemTo(to, itemType, 1);
     }
 
     void TransferAll(Inventory from, Inventory to, string itemType)
@@ -256,14 +243,7 @@ public class StorageChestBuilding : MonoBehaviour, IBuildable, ITextInfoOverlay
             return;
         }
 
-        int quantityToMove = item.quantity;
-        if (!to.CanAddItem(new ItemData(item.itemType, quantityToMove, item.prefab)))
-        {
-            return;
-        }
-
-        to.AddItem(new ItemData(item.itemType, quantityToMove, item.prefab));
-        from.RemoveItem(itemType, quantityToMove);
+        from.TryMoveAllOfTypeTo(to, itemType);
     }
 
     int CountStacks(Inventory inventory)
