@@ -1,25 +1,13 @@
 using UnityEngine;
 
+[RequireComponent(typeof(Rigidbody))]
 public class StoneItem : MonoBehaviour, IPickable, ITextInfoOverlay
 {
     [SerializeField] private string stoneType = "Stone";
-    private GameObject prefab;
+    [SerializeField] private GameObject prefab;
 
     void Start()
     {
-        Rigidbody rb = GetComponent<Rigidbody>();
-        if (rb == null)
-        {
-            rb = gameObject.AddComponent<Rigidbody>();
-        }
-
-        rb.isKinematic = false;
-        rb.useGravity = true;
-        rb.mass = 1f;
-        rb.linearDamping = 0.2f;
-        rb.angularDamping = 0.1f;
-        rb.constraints = RigidbodyConstraints.None;
-
         IgnorePlayerCollision();
     }
 
@@ -45,11 +33,6 @@ public class StoneItem : MonoBehaviour, IPickable, ITextInfoOverlay
 
     public ItemData GetItemData()
     {
-        if (prefab == null)
-        {
-            prefab = Resources.Load<GameObject>("Prefabs/Stone");
-        }
-
         return new ItemData(stoneType, 1, prefab);
     }
 
