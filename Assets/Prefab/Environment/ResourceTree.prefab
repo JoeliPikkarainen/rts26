@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 7106594865976292632}
   - component: {fileID: 4624813018676909851}
   - component: {fileID: 6131884258125216247}
+  - component: {fileID: -1491143792893729109}
   m_Layer: 0
   m_Name: ResourceTree
   m_TagString: Untagged
@@ -127,8 +128,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f3d6cca641dbeec47ac20ea2a754894c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Tree
-  health: 5
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
   logPrefab: {fileID: 482992993898891931, guid: bb2d3068d4556b042816128671577241, type: 3}
   logDropCount: 1
   dropScatterRadius: 0.5
   depletedTint: {r: 0.35, g: 0.35, b: 0.35, a: 1}
+  startHealth: 5
+--- !u!114 &-1491143792893729109
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 381691323341613716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b91ecbcc199f4492b9a91e820070131, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Mirror::Mirror.NetworkIdentity
+  sceneId: 0
+  _assetId: 2709168946
+  serverOnly: 0
+  visibility: 0
+  hasSpawned: 0

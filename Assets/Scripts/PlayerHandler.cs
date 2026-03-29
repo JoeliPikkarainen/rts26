@@ -82,6 +82,17 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
     private int equipmentDamageBonus;
     private float equipmentAttackSpeedMultiplier = 1f;
     private GameObject equippedWeaponVisualInstance;
+    private NetworkPlayer networkPlayer;
+
+    /// <summary>Called by NetworkPlayer when this is the local player. Enables network-routed actions.</summary>
+    public void SetNetworkPlayer(NetworkPlayer np) { networkPlayer = np; }
+
+    /// <summary>Returns the raw build prefab at the given index (used by NetworkPlayer.CmdPlaceBuilding on the server).</summary>
+    public GameObject GetBuildPrefab(int index)
+    {
+        if (buildPrefabs == null || index < 0 || index >= buildPrefabs.Length) return null;
+        return buildPrefabs[index];
+    }
 
     void Start()
     {
@@ -407,11 +418,19 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         // Check hitting - ALWAYS attempt to attack in that direction
         if (RaycastIgnoreSelf(playerRay, interactRange, out RaycastHit hit))
         {
-            // Context of the hit
             HitEvent.HitCtx ctx = new HitEvent.HitCtx { dmg = GetCurrentDamage() };
 
-            // Send event handler
-            GameEvents.OnHit?.Invoke(new HitEvent(this.gameObject, hit.collider.gameObject, ctx));
+            // Route networked targets through server; local targets (NPCs etc.) use the local event
+            NetworkIdentity networkTarget = hit.collider.GetComponent<NetworkIdentity>()
+                ?? hit.collider.GetComponentInParent<NetworkIdentity>();
+            if (networkTarget != null && networkPlayer != null && networkTarget.netId != 0)
+            {
+                networkPlayer.CmdHitNetworkObject(networkTarget, ctx.dmg);
+            }
+            else
+            {
+                GameEvents.OnHit?.Invoke(new HitEvent(this.gameObject, hit.collider.gameObject, ctx));
+            }
         }
     }
 
@@ -431,9 +450,20 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         INpc npc = hit.collider.GetComponent<INpc>() ?? hit.collider.GetComponentInParent<INpc>();
         if (npc != null)
         {
+            NetworkIdentity npcIdentity = hit.collider.GetComponent<NetworkIdentity>()
+                ?? hit.collider.GetComponentInParent<NetworkIdentity>();
+
             if (npc.IsNeutral() && npc.CanBeRecruited())
             {
-                npc.Recruit(gameObject);
+                if (networkPlayer != null && npcIdentity != null && npcIdentity.netId != 0)
+                {
+                    networkPlayer.CmdRecruitNpc(npcIdentity);
+                }
+                else
+                {
+                    npc.Recruit(gameObject);
+                }
+
                 Debug.Log($"Recruited {npc.GetDisplayName()}");
             }
             else if (npc.GetOwner() == gameObject)
@@ -515,7 +545,16 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
             return;
         }
 
-        selectedNpcForCommand.SetBehaviour(behaviour);
+        NpcController npcController = selectedNpcForCommand as NpcController;
+        if (networkPlayer != null && npcController != null && npcController.TryGetComponent(out NetworkIdentity npcIdentity) && npcIdentity.netId != 0)
+        {
+            networkPlayer.CmdSetNpcBehaviour(npcIdentity, behaviour);
+        }
+        else
+        {
+            selectedNpcForCommand.SetBehaviour(behaviour);
+        }
+
         npcCommandStatus = $"{selectedNpcForCommand.GetDisplayName()} => {behaviour}";
 
         Debug.Log(npcCommandStatus);
@@ -529,18 +568,27 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
             return;
         }
 
-        selectedNpcForCommand.SetGatherPreference(preference);
-        selectedNpcForCommand.SetBehaviour(NpcBehaviour.Gather);
-
-        GameObject gatherTarget = FindNearestGatherableTarget(selectedNpcForCommand as MonoBehaviour, preference);
-        if (gatherTarget != null)
+        NpcController npcController = selectedNpcForCommand as NpcController;
+        if (networkPlayer != null && npcController != null && npcController.TryGetComponent(out NetworkIdentity npcIdentity) && npcIdentity.netId != 0)
         {
-            selectedNpcForCommand.GatherFrom(gatherTarget);
-            npcCommandStatus = $"{selectedNpcForCommand.GetDisplayName()} gathering {preference}: {gatherTarget.name}";
+            networkPlayer.CmdSetNpcGatherPreference(npcIdentity, preference);
+            npcCommandStatus = $"{selectedNpcForCommand.GetDisplayName()} searching for {preference}";
         }
         else
         {
-            npcCommandStatus = $"{selectedNpcForCommand.GetDisplayName()} searching for {preference}";
+            selectedNpcForCommand.SetGatherPreference(preference);
+            selectedNpcForCommand.SetBehaviour(NpcBehaviour.Gather);
+
+            GameObject gatherTarget = FindNearestGatherableTarget(selectedNpcForCommand as MonoBehaviour, preference);
+            if (gatherTarget != null)
+            {
+                selectedNpcForCommand.GatherFrom(gatherTarget);
+                npcCommandStatus = $"{selectedNpcForCommand.GetDisplayName()} gathering {preference}: {gatherTarget.name}";
+            }
+            else
+            {
+                npcCommandStatus = $"{selectedNpcForCommand.GetDisplayName()} searching for {preference}";
+            }
         }
 
         Debug.Log(npcCommandStatus);
@@ -621,14 +669,23 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
 
             if (pickable != null)
             {
-
-                // Draw line to pickable item in green - showing successful reach
                 DrawDebugRay(playerRay.origin, playerRay.direction, Vector3.Distance(playerPos, hit.point), playerRayRenderer, Color.green);
 
-                ItemData itemData = pickable.GetItemData();
-                GameEvents.OnPickup?.Invoke(new PickupEvent(this.gameObject, hit.collider.gameObject, itemData));
-                pickable.OnPickup();
-                Debug.Log("Picked up item: " + itemData.itemType);
+                // If the item has a NetworkIdentity, route through server so all clients see it disappear
+                NetworkIdentity itemNetId = hit.collider.GetComponent<NetworkIdentity>()
+                    ?? hit.collider.GetComponentInParent<NetworkIdentity>();
+                if (itemNetId != null && networkPlayer != null)
+                {
+                    networkPlayer.CmdPickupItem(itemNetId);
+                }
+                else
+                {
+                    // Offline / non-networked item fallback
+                    ItemData itemData = pickable.GetItemData();
+                    GameEvents.OnPickup?.Invoke(new PickupEvent(this.gameObject, hit.collider.gameObject, itemData));
+                    pickable.OnPickup();
+                    Debug.Log("Picked up item: " + itemData.itemType);
+                }
             }
             else
             {
@@ -1395,11 +1452,20 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
             return;
         }
 
-        GameObject placedObject = Instantiate(option.prefab, buildPreviewPosition, buildPreviewRotation);
         ConsumeBuildCosts(option);
 
-        IBuildable buildable = GetBuildableFromObject(placedObject);
-        buildable?.OnPlaced(gameObject);
+        if (networkPlayer != null)
+        {
+            // Server instantiates + NetworkServer.Spawn so all clients see the building
+            networkPlayer.CmdPlaceBuilding(selectedBuildIndex, buildPreviewPosition, buildPreviewRotation);
+        }
+        else
+        {
+            // Offline / single-player fallback
+            GameObject placedObject = Instantiate(option.prefab, buildPreviewPosition, buildPreviewRotation);
+            IBuildable buildable = GetBuildableFromObject(placedObject);
+            buildable?.OnPlaced(gameObject);
+        }
     }
 
     IBuildable GetBuildableFromObject(GameObject target)

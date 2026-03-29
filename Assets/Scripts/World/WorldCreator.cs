@@ -25,6 +25,8 @@ public class WorldCreator : MonoBehaviour
         [Min(0f)] public float occurrenceWeight = 1f;
         public Vector2 uniformScaleRange = Vector2.one;
         public bool randomYRotation = true;
+        [Tooltip("If true, only the server spawns this via NetworkServer.Spawn. Clients receive it from Mirror. Requires NetworkIdentity on the prefab.")]
+        public bool networkSpawn = false;
     }
 
     [Serializable]
@@ -41,6 +43,7 @@ public class WorldCreator : MonoBehaviour
     [SerializeField] private bool clearPreviousGenerated = true;
     [SerializeField] private bool deterministic = true;
     [SerializeField] private int seed = 12345;
+    [SerializeField] private bool autoNetworkSpawnServerEntries = true;
 
     [Header("Ground")]
     [SerializeField] private GroundSettings ground = new GroundSettings();
@@ -68,6 +71,13 @@ public class WorldCreator : MonoBehaviour
 
     void Start()
     {
+        // In multiplayer client mode, the server owns all interactive world objects.
+        // Client should only create terrain from OnClientSceneChanged.
+        if (NetworkClient.active && !NetworkServer.active)
+        {
+            return;
+        }
+
         if (generateOnStart && !hasGenerated)
         {
             GenerateWorld();
@@ -99,6 +109,144 @@ public class WorldCreator : MonoBehaviour
         CreatePlayerSpawnPoints(generatedRoot, rng);
 
         Debug.Log("World generation complete.");
+    }
+
+    /// <summary>
+    /// Generates only the terrain (ground mesh). Call this on clients — interactive
+    /// objects (trees, rocks, etc.) arrive via Mirror from the server.
+    /// </summary>
+    public void GenerateTerrain()
+    {
+        hasGenerated = true;
+
+        if (clearPreviousGenerated)
+        {
+            ClearGeneratedWorld();
+        }
+
+        Transform generatedRoot = GetOrCreateGeneratedRoot();
+
+        if (ground.generateGround)
+        {
+            CreateGround(generatedRoot);
+        }
+
+        Debug.Log("Terrain generation complete (client-side).");
+    }
+
+    /// <summary>
+    /// Registers all network-spawned world prefabs on the client so Mirror can
+    /// instantiate server-spawned procedural objects.
+    /// </summary>
+    public void RegisterNetworkSpawnPrefabsOnClient()
+    {
+        if (!NetworkClient.active)
+        {
+            return;
+        }
+
+        HashSet<uint> processedAssetIds = new HashSet<uint>();
+        foreach (SpawnEntry entry in EnumerateSpawnEntries())
+        {
+            if (entry == null || entry.prefab == null)
+            {
+                continue;
+            }
+
+            bool prefabHasIdentity = entry.prefab.TryGetComponent(out NetworkIdentity identity);
+            bool shouldRegister = entry.networkSpawn || (autoNetworkSpawnServerEntries && prefabHasIdentity);
+            if (!shouldRegister)
+            {
+                continue;
+            }
+
+            if (!prefabHasIdentity)
+            {
+                Debug.LogWarning($"WorldCreator: SpawnEntry '{entry.id}' requires network spawn but prefab '{entry.prefab.name}' is missing NetworkIdentity.", this);
+                continue;
+            }
+
+            RegisterNetworkPrefabIfValid(entry.prefab, entry.id, processedAssetIds);
+            RegisterReferencedDropPrefabs(entry.prefab, entry.id, processedAssetIds);
+        }
+    }
+
+    void RegisterReferencedDropPrefabs(GameObject sourcePrefab, string entryId, HashSet<uint> processedAssetIds)
+    {
+        if (sourcePrefab == null)
+        {
+            return;
+        }
+
+        Tree[] trees = sourcePrefab.GetComponentsInChildren<Tree>(true);
+        for (int i = 0; i < trees.Length; i++)
+        {
+            RegisterNetworkPrefabIfValid(trees[i].GetDropPrefab(), entryId + "/TreeDrop", processedAssetIds);
+        }
+
+        RockNode[] rocks = sourcePrefab.GetComponentsInChildren<RockNode>(true);
+        for (int i = 0; i < rocks.Length; i++)
+        {
+            RegisterNetworkPrefabIfValid(rocks[i].GetDropPrefab(), entryId + "/RockDrop", processedAssetIds);
+        }
+    }
+
+    void RegisterNetworkPrefabIfValid(GameObject prefab, string sourceLabel, HashSet<uint> processedAssetIds)
+    {
+        if (prefab == null)
+        {
+            return;
+        }
+
+        if (!prefab.TryGetComponent(out NetworkIdentity identity))
+        {
+            Debug.LogWarning($"WorldCreator: Referenced network prefab from '{sourceLabel}' is missing NetworkIdentity on '{prefab.name}'.", this);
+            return;
+        }
+
+        uint assetId = identity.assetId;
+        if (assetId == 0)
+        {
+            Debug.LogWarning($"WorldCreator: Prefab '{prefab.name}' has invalid assetId (0). Ensure it is a proper prefab asset.", this);
+            return;
+        }
+
+        if (!processedAssetIds.Add(assetId))
+        {
+            return;
+        }
+
+        if (!NetworkClient.prefabs.ContainsKey(assetId))
+        {
+            NetworkClient.RegisterPrefab(prefab);
+        }
+    }
+
+    IEnumerable<SpawnEntry> EnumerateSpawnEntries()
+    {
+        if (environmentCategory?.entries != null)
+        {
+            for (int i = 0; i < environmentCategory.entries.Count; i++)
+            {
+                yield return environmentCategory.entries[i];
+            }
+        }
+
+        if (spawnerCategory?.entries != null)
+        {
+            for (int i = 0; i < spawnerCategory.entries.Count; i++)
+            {
+                yield return spawnerCategory.entries[i];
+            }
+        }
+
+        if (npcCategory?.entries != null)
+        {
+            for (int i = 0; i < npcCategory.entries.Count; i++)
+            {
+                yield return npcCategory.entries[i];
+            }
+        }
     }
 
     [ContextMenu("Clear Generated World")]
@@ -236,13 +384,33 @@ public class WorldCreator : MonoBehaviour
                 ? Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f)
                 : Quaternion.identity;
 
-            GameObject instance = Instantiate(entry.prefab, candidate, rot, parent);
-            instance.name = entry.prefab.name;
-
             float minScale = Mathf.Max(0.1f, entry.uniformScaleRange.x);
             float maxScale = Mathf.Max(minScale, entry.uniformScaleRange.y);
             float scale = Mathf.Lerp(minScale, maxScale, (float)rng.NextDouble());
-            instance.transform.localScale *= scale;
+
+            bool prefabHasNetworkIdentity = entry.prefab.TryGetComponent(out NetworkIdentity _);
+            bool shouldNetworkSpawn = entry.networkSpawn || (autoNetworkSpawnServerEntries && prefabHasNetworkIdentity);
+
+            if (shouldNetworkSpawn)
+            {
+                // Skip on clients — server will NetworkServer.Spawn and Mirror will send it.
+                if (!NetworkServer.active)
+                {
+                    placedPositions.Add(candidate); // keep spacing consistent with server
+                    return true;
+                }
+
+                GameObject instance = Instantiate(entry.prefab, candidate, rot);
+                instance.name = entry.prefab.name;
+                instance.transform.localScale *= scale;
+                NetworkServer.Spawn(instance);
+            }
+            else
+            {
+                GameObject instance = Instantiate(entry.prefab, candidate, rot, parent);
+                instance.name = entry.prefab.name;
+                instance.transform.localScale *= scale;
+            }
 
             placedPositions.Add(candidate);
             return true;

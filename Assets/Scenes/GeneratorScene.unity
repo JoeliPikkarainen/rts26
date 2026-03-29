@@ -297,6 +297,7 @@ MonoBehaviour:
       occurrenceWeight: 0
       uniformScaleRange: {x: 1, y: 1}
       randomYRotation: 0
+      networkSpawn: 0
     - id: 
       prefab: {fileID: 6175708925539154374, guid: e0a4d4c03f439b644a90aa0330cfb149, type: 3}
       minCount: 50
@@ -304,6 +305,7 @@ MonoBehaviour:
       occurrenceWeight: 0
       uniformScaleRange: {x: 1, y: 1}
       randomYRotation: 0
+      networkSpawn: 0
   spawnerCategory:
     categoryName: Spawners
     minSpacing: 6
@@ -321,12 +323,16 @@ MonoBehaviour:
       occurrenceWeight: 0
       uniformScaleRange: {x: 1, y: 1}
       randomYRotation: 0
+      networkSpawn: 0
   placementMask:
     serializedVersion: 2
     m_Bits: 4294967295
   raycastHeight: 200
   spawnYOffset: 0
   borderPadding: {x: 2, y: 2}
+  playerSpawnPointCount: 8
+  playerSpawnMinSpacing: 8
+  playerSpawnPlacementAttempts: 40
 --- !u!4 &2101641072
 Transform:
   m_ObjectHideFlags: 0

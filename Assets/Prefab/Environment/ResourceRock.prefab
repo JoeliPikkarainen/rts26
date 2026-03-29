@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 5671293053790836755}
   - component: {fileID: 4512725463330815655}
   - component: {fileID: 947098355879790707}
+  - component: {fileID: 277249123830090801}
   m_Layer: 0
   m_Name: ResourceRock
   m_TagString: Untagged
@@ -104,10 +105,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 29910f8fc5f44b74989db83fd8de211b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RockNode
-  health: 8
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  startHealth: 8
   stonePrefab: {fileID: 2774795837449536054, guid: b8c518947bba8a247a427518edf74409, type: 3}
   stoneDropCount: 1
   dropScatterRadius: 0.4
+  depletedTint: {r: 0.25, g: 0.25, b: 0.25, a: 1}
 --- !u!65 &947098355879790707
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -129,3 +134,20 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.8639474, y: 0.38752747, z: 0.7188444}
   m_Center: {x: 0.051072344, y: 0.16851658, z: 0.029650211}
+--- !u!114 &277249123830090801
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6175708925539154374}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b91ecbcc199f4492b9a91e820070131, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Mirror::Mirror.NetworkIdentity
+  sceneId: 0
+  _assetId: 836482297
+  serverOnly: 0
+  visibility: 0
+  hasSpawned: 0

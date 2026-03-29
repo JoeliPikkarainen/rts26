@@ -1,22 +1,41 @@
+using Mirror;
 using UnityEngine;
 
-public class RockNode : MonoBehaviour, ITextInfoOverlay, IGatherable
+public class RockNode : NetworkBehaviour, ITextInfoOverlay, IGatherable
 {
-    [SerializeField] private int health = 8;
+    [SerializeField] private int startHealth = 8;
     [SerializeField] private GameObject stonePrefab;
     [SerializeField] private int stoneDropCount = 1;
     [SerializeField] private float dropScatterRadius = 0.4f;
     [SerializeField] private Color depletedTint = new Color(0.25f, 0.25f, 0.25f, 1f);
 
-    private int maxHealth;
-    private int nextDropStep;
+    [SyncVar(hook = nameof(OnHealthSync))]
+    private int health;
+
+    [SyncVar(hook = nameof(OnIsDepletedSync))]
     private bool isDepleted;
 
-    void Start()
+    private int maxHealth;
+    private int nextDropStep;
+
+    public GameObject GetDropPrefab()
     {
-        maxHealth = Mathf.Max(4, health);
+        return stonePrefab;
+    }
+
+    public override void OnStartServer()
+    {
+        base.OnStartServer();
+        maxHealth = Mathf.Max(4, startHealth);
         health = maxHealth;
         nextDropStep = 1;
+    }
+
+    public override void OnStartClient()
+    {
+        base.OnStartClient();
+        maxHealth = Mathf.Max(4, startHealth);
+        if (isDepleted) ApplyDepletedVisual();
     }
 
     void OnEnable()
@@ -31,6 +50,7 @@ public class RockNode : MonoBehaviour, ITextInfoOverlay, IGatherable
 
     void HandleHit(HitEvent hit)
     {
+        if (!isServer) return;
         if (hit.dst != gameObject && (hit.dst == null || !hit.dst.transform.IsChildOf(transform)))
         {
             return;
@@ -41,10 +61,8 @@ public class RockNode : MonoBehaviour, ITextInfoOverlay, IGatherable
 
     public void Gather(int amount)
     {
-        if (isDepleted || health <= 0)
-        {
-            return;
-        }
+        if (!isServer) return;
+        if (isDepleted || health <= 0) return;
 
         int oldHealth = health;
         health -= Mathf.Max(1, amount);
@@ -78,29 +96,28 @@ public class RockNode : MonoBehaviour, ITextInfoOverlay, IGatherable
 
     void DropStone()
     {
-        if (stonePrefab == null || stoneDropCount <= 0)
-        {
-            return;
-        }
+        if (stonePrefab == null || stoneDropCount <= 0) return;
 
         for (int i = 0; i < stoneDropCount; i++)
         {
             Vector2 scatter = Random.insideUnitCircle * dropScatterRadius;
             Vector3 spawnPos = transform.position + new Vector3(scatter.x, 0.25f, scatter.y);
-            Instantiate(stonePrefab, spawnPos, Quaternion.identity);
+            GameObject stone = Instantiate(stonePrefab, spawnPos, Quaternion.identity);
+            NetworkServer.Spawn(stone);
         }
     }
 
     void Deplete()
     {
-        if (isDepleted)
-        {
-            return;
-        }
+        if (isDepleted) return;
+        isDepleted = true; // SyncVar — hook fires on all clients
+    }
 
-        isDepleted = true;
-        ApplyDepletedVisual();
-        Destroy(this);
+    void OnHealthSync(int _, int __) { /* health bar update could go here */ }
+
+    void OnIsDepletedSync(bool _, bool newVal)
+    {
+        if (newVal) ApplyDepletedVisual();
     }
 
     void ApplyDepletedVisual()

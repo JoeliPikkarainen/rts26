@@ -30,6 +30,7 @@ public class GameNetworkManager : NetworkManager
 
     private readonly Dictionary<int, string> connectedLobbyPlayers = new Dictionary<int, string>();
     private bool pendingGameSceneStart;
+    private bool pendingGameplayWorldInitialization;
 
     public static event Action<IReadOnlyList<string>> LobbyPlayersUpdated;
 
@@ -97,6 +98,10 @@ public class GameNetworkManager : NetworkManager
         {
             SpawnPlayerForConnection(conn);
         }
+
+        // During scene transition, wait until all current clients are ready before
+        // generating world objects and starting the match.
+        TryInitializeGameplayWorldAndMatch();
     }
 
     public override void OnServerDisconnect(NetworkConnectionToClient conn)
@@ -138,6 +143,13 @@ public class GameNetworkManager : NetworkManager
     {
         base.OnClientSceneChanged();
 
+        // Host is both server and client. Server already generated the full world,
+        // so skip client-only terrain generation to avoid clearing it.
+        if (NetworkServer.active)
+        {
+            return;
+        }
+
         if (!string.Equals(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name, GetSceneName(multiplayerGameScene), StringComparison.Ordinal))
         {
             return;
@@ -146,7 +158,10 @@ public class GameNetworkManager : NetworkManager
         WorldCreator worldCreator = FindObjectOfType<WorldCreator>();
         if (worldCreator != null)
         {
-            worldCreator.GenerateWorld();
+            worldCreator.RegisterNetworkSpawnPrefabsOnClient();
+
+            // Client only generates terrain (ground mesh); interactive objects arrive via Mirror from server
+            worldCreator.GenerateTerrain();
         }
     }
 
@@ -199,8 +214,43 @@ public class GameNetworkManager : NetworkManager
         }
 
         pendingGameSceneStart = false;
+        pendingGameplayWorldInitialization = true;
+        TryInitializeGameplayWorldAndMatch();
+    }
+
+    private void TryInitializeGameplayWorldAndMatch()
+    {
+        if (!pendingGameplayWorldInitialization)
+        {
+            return;
+        }
+
+        if (!AreAllConnectionsReady())
+        {
+            return;
+        }
+
+        pendingGameplayWorldInitialization = false;
         PrepareGameplayWorld();
         StartMatch();
+    }
+
+    private bool AreAllConnectionsReady()
+    {
+        foreach (NetworkConnectionToClient connection in NetworkServer.connections.Values)
+        {
+            if (connection == null)
+            {
+                continue;
+            }
+
+            if (!connection.isReady)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void PrepareGameplayWorld()

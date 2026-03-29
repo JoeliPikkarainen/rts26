@@ -1,21 +1,44 @@
+using Mirror;
 using UnityEngine;
 
-public class Tree : MonoBehaviour, ITextInfoOverlay, IGatherable
+public class Tree : NetworkBehaviour, ITextInfoOverlay, IGatherable
 {
-    public int health = 5;
     [SerializeField] private GameObject logPrefab;
     [SerializeField] private int logDropCount = 1;
     [SerializeField] private float dropScatterRadius = 0.5f;
     [SerializeField] private Color depletedTint = new Color(0.35f, 0.35f, 0.35f, 1f);
-    private int maxHealth;
-    private int nextDropStep;
+    [SerializeField] private int startHealth = 5;
+
+    [SyncVar(hook = nameof(OnHealthSync))]
+    private int health;
+
+    [SyncVar(hook = nameof(OnIsDepletedSync))]
     private bool isDepleted;
 
-    void Start()
+    private int maxHealth;
+    private int nextDropStep;
+
+    public GameObject GetDropPrefab()
     {
-        maxHealth = Mathf.Max(4, health);
+        return logPrefab;
+    }
+
+    public override void OnStartServer()
+    {
+        base.OnStartServer();
+        maxHealth = Mathf.Max(4, startHealth);
         health = maxHealth;
         nextDropStep = 1;
+    }
+
+    public override void OnStartClient()
+    {
+        base.OnStartClient();
+        // maxHealth can't be inferred from health alone after damage.
+        // Store it via SyncVar-equivalent or duplicate the field.
+        // For display purposes, keep a local copy.
+        maxHealth = Mathf.Max(4, startHealth);
+        if (isDepleted) ApplyDepletedVisual();
     }
 
     void OnEnable()
@@ -30,6 +53,8 @@ public class Tree : MonoBehaviour, ITextInfoOverlay, IGatherable
 
     void HandleHit(HitEvent hit)
     {
+        // Local event safety: only server applies damage
+        if (!isServer) return;
         if (hit.dst != gameObject) return;
 
         Gather(hit.ctx.dmg);
@@ -37,10 +62,8 @@ public class Tree : MonoBehaviour, ITextInfoOverlay, IGatherable
 
     public void Gather(int amount)
     {
-        if (isDepleted || health <= 0)
-        {
-            return;
-        }
+        if (!isServer) return;
+        if (isDepleted || health <= 0) return;
 
         int oldHealth = health;
         health -= Mathf.Max(1, amount);
@@ -75,31 +98,29 @@ public class Tree : MonoBehaviour, ITextInfoOverlay, IGatherable
 
     void DropLogs()
     {
-        if (logPrefab == null || logDropCount <= 0)
-        {
-            return;
-        }
+        if (logPrefab == null || logDropCount <= 0) return;
 
         for (int i = 0; i < logDropCount; i++)
         {
             Vector2 scatter = Random.insideUnitCircle * dropScatterRadius;
             Vector3 spawnPos = transform.position + new Vector3(scatter.x, 0.3f, scatter.y);
-            Instantiate(logPrefab, spawnPos, Quaternion.identity);
+            GameObject log = Instantiate(logPrefab, spawnPos, Quaternion.identity);
+            NetworkServer.Spawn(log);
         }
     }
 
     void Deplete()
     {
-        if (isDepleted)
-        {
-            return;
-        }
-        isDepleted = true;
+        if (isDepleted) return;
+        isDepleted = true; // SyncVar — hook fires on all clients
+    }
 
-        ApplyDepletedVisual();
+    // SyncVar hooks run on clients (and host) when values change
+    void OnHealthSync(int _, int __) { /* health bar update could go here */ }
 
-        // Depleted tree should no longer be considered a gather target.
-        Destroy(this);
+    void OnIsDepletedSync(bool _, bool newVal)
+    {
+        if (newVal) ApplyDepletedVisual();
     }
 
     void ApplyDepletedVisual()

@@ -1,3 +1,4 @@
+using Mirror;
 using UnityEngine;
 using System.Collections.Generic;
 
@@ -8,7 +9,8 @@ using System.Collections.Generic;
 /// </summary>
 [RequireComponent(typeof(Inventory))]
 [RequireComponent(typeof(Rigidbody))]
-public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
+[RequireComponent(typeof(NetworkIdentity))]
+public class NpcController : NetworkBehaviour, INpc, IDamageable, ITextInfoOverlay
 {
     [SerializeField] private string npcId = "goblin";
     [SerializeField] private string displayName = "Goblin";
@@ -45,10 +47,14 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
     [SerializeField] private bool enableVerboseLogs = false;
 
     // Runtime state
-    private int currentHealth;
-    private GameObject owner;           // null = neutral
-    private NpcBehaviour currentBehaviour;
-    private GatherResourcePreference gatherPreference = GatherResourcePreference.Closest;
+    [SyncVar] private int currentHealth;
+    [SyncVar(hook = nameof(OnOwnerNetIdChanged))] private uint ownerNetId;
+    [SyncVar] private NpcBehaviour currentBehaviour;
+    [SyncVar] private GatherResourcePreference gatherPreference = GatherResourcePreference.Closest;
+    [SyncVar(hook = nameof(OnSyncedPositionChanged))] private Vector3 syncedPosition;
+    [SyncVar(hook = nameof(OnSyncedRotationChanged))] private Quaternion syncedRotation;
+
+    private GameObject owner;
     private GameObject gatherTarget;
     private GameObject attackTarget;
     private Inventory npcInventory;
@@ -61,6 +67,8 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
     private bool hasWanderTarget;
     private float wanderPauseTimer;
     private StorageChestBuilding storageTarget;
+    private Vector3 targetPosition;
+    private Quaternion targetRotation;
 
     // -------------------------------------------------------------------------
     // Unity lifecycle
@@ -86,6 +94,31 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
             owner = null;
             currentBehaviour = NpcBehaviour.Attack;
         }
+
+        targetPosition = transform.position;
+        targetRotation = transform.rotation;
+    }
+
+    public override void OnStartServer()
+    {
+        base.OnStartServer();
+        syncedPosition = transform.position;
+        syncedRotation = transform.rotation;
+    }
+
+    public override void OnStartClient()
+    {
+        base.OnStartClient();
+        ResolveOwnerFromNetId();
+        targetPosition = transform.position;
+        targetRotation = transform.rotation;
+
+        if (!isServer && rb != null)
+        {
+            rb.isKinematic = true;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
     }
 
     void OnEnable()
@@ -100,7 +133,18 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
 
     void Update()
     {
+        if (!isServer)
+        {
+            float lerpT = Mathf.Clamp01(Time.deltaTime * 12f);
+            transform.position = Vector3.Lerp(transform.position, targetPosition, lerpT);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, lerpT);
+            return;
+        }
+
         actionTimer -= Time.deltaTime;
+
+        syncedPosition = transform.position;
+        syncedRotation = transform.rotation;
 
         switch (currentBehaviour)
         {
@@ -122,12 +166,18 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
 
     public void Recruit(GameObject recruiter)
     {
+        if (!isServer)
+        {
+            return;
+        }
+
         if (!isRecruitable)
         {
             return;
         }
 
         owner = recruiter;
+        ownerNetId = recruiter != null && recruiter.TryGetComponent(out NetworkIdentity recruiterIdentity) ? recruiterIdentity.netId : 0;
         gatherTarget = null;
         attackTarget = null;
         currentBehaviour = NpcBehaviour.Follow;
@@ -135,6 +185,11 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
 
     public void SetBehaviour(NpcBehaviour behaviour)
     {
+        if (!isServer)
+        {
+            return;
+        }
+
         currentBehaviour = behaviour;
         if (behaviour != NpcBehaviour.Gather) gatherTarget = null;
         if (behaviour != NpcBehaviour.Attack) attackTarget = null;
@@ -150,12 +205,22 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
 
     public void GatherFrom(GameObject target)
     {
+        if (!isServer)
+        {
+            return;
+        }
+
         gatherTarget = target;
         currentBehaviour = NpcBehaviour.Gather;
     }
 
     public void SetGatherPreference(GatherResourcePreference preference)
     {
+        if (!isServer)
+        {
+            return;
+        }
+
         gatherPreference = preference;
         gatherTarget = null;
     }
@@ -179,6 +244,11 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
 
     public void AttackTarget(GameObject target)
     {
+        if (!isServer)
+        {
+            return;
+        }
+
         attackTarget = target;
         currentBehaviour = NpcBehaviour.Attack;
     }
@@ -230,6 +300,11 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
 
     public void TakeDamage(int amount)
     {
+        if (!isServer)
+        {
+            return;
+        }
+
         currentHealth -= amount;
         if (enableVerboseLogs)
         {
@@ -241,6 +316,11 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
 
     void HandleHit(HitEvent hit)
     {
+        if (!isServer)
+        {
+            return;
+        }
+
         if (hit.dst == gameObject || (hit.dst != null && hit.dst.transform.IsChildOf(transform)))
         {
             TakeDamage(hit.ctx.dmg);
@@ -266,7 +346,12 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
 
     void Die()
     {
-        Destroy(gameObject);
+        if (!isServer)
+        {
+            return;
+        }
+
+        NetworkServer.Destroy(gameObject);
     }
 
     string BuildInventorySummary()
@@ -279,6 +364,11 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
 
     void MoveToward(Vector3 targetPos, float stoppingDistance)
     {
+        if (!isServer)
+        {
+            return;
+        }
+
         Vector3 dir = targetPos - transform.position;
         dir.y = 0f;
         if (dir.magnitude <= stoppingDistance) return;
@@ -642,6 +732,39 @@ public class NpcController : MonoBehaviour, INpc, IDamageable, ITextInfoOverlay
     float GetEffectiveActionCooldown()
     {
         return actionCooldown / Mathf.Max(0.1f, actionSpeedMultiplier);
+    }
+
+    void OnOwnerNetIdChanged(uint oldValue, uint newValue)
+    {
+        ResolveOwnerFromNetId();
+    }
+
+    void ResolveOwnerFromNetId()
+    {
+        owner = null;
+        if (ownerNetId == 0)
+        {
+            return;
+        }
+
+        if (NetworkClient.spawned.TryGetValue(ownerNetId, out NetworkIdentity ownerIdentity))
+        {
+            owner = ownerIdentity.gameObject;
+        }
+        else if (NetworkServer.spawned.TryGetValue(ownerNetId, out NetworkIdentity serverIdentity))
+        {
+            owner = serverIdentity.gameObject;
+        }
+    }
+
+    void OnSyncedPositionChanged(Vector3 oldValue, Vector3 newValue)
+    {
+        targetPosition = newValue;
+    }
+
+    void OnSyncedRotationChanged(Quaternion oldValue, Quaternion newValue)
+    {
+        targetRotation = newValue;
     }
 
     void UpdateDefend()

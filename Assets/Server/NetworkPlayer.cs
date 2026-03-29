@@ -112,6 +112,100 @@ public class NetworkPlayer : NetworkBehaviour
         syncedRotation = rot;
     }
 
+    // -------------------------------------------------------------------------
+    // World interaction commands (server-authoritative)
+    // -------------------------------------------------------------------------
+
+    /// <summary>Hit a networked gatherable (Tree, RockNode). Runs on server.</summary>
+    [Command]
+    public void CmdHitNetworkObject(NetworkIdentity target, int damage)
+    {
+        if (target == null) return;
+        IGatherable gatherable = target.GetComponent<IGatherable>()
+            ?? target.GetComponentInChildren<IGatherable>();
+        if (gatherable != null)
+        {
+            gatherable.Gather(damage);
+            return;
+        }
+
+        IDamageable damageable = target.GetComponent<IDamageable>()
+            ?? target.GetComponentInChildren<IDamageable>();
+        if (damageable != null)
+        {
+            damageable.TakeDamage(damage);
+        }
+    }
+
+    [Command]
+    public void CmdRecruitNpc(NetworkIdentity npcIdentity)
+    {
+        if (npcIdentity == null) return;
+
+        INpc npc = npcIdentity.GetComponent<INpc>()
+            ?? npcIdentity.GetComponentInChildren<INpc>();
+        npc?.Recruit(gameObject);
+    }
+
+    [Command]
+    public void CmdSetNpcBehaviour(NetworkIdentity npcIdentity, NpcBehaviour behaviour)
+    {
+        if (npcIdentity == null) return;
+
+        INpc npc = npcIdentity.GetComponent<INpc>()
+            ?? npcIdentity.GetComponentInChildren<INpc>();
+        npc?.SetBehaviour(behaviour);
+    }
+
+    [Command]
+    public void CmdSetNpcGatherPreference(NetworkIdentity npcIdentity, GatherResourcePreference preference)
+    {
+        if (npcIdentity == null) return;
+
+        INpc npc = npcIdentity.GetComponent<INpc>()
+            ?? npcIdentity.GetComponentInChildren<INpc>();
+        if (npc == null) return;
+
+        npc.SetGatherPreference(preference);
+        npc.SetBehaviour(NpcBehaviour.Gather);
+    }
+
+    /// <summary>Pick up a networked item. Server destroys it and tells this client to add it to inventory.</summary>
+    [Command]
+    public void CmdPickupItem(NetworkIdentity item)
+    {
+        if (item == null) return;
+        IPickable pickable = item.GetComponent<IPickable>()
+            ?? item.GetComponentInChildren<IPickable>();
+        if (pickable == null) return;
+
+        ItemData data = pickable.GetItemData();
+        TargetOnItemPickedUp(data.itemType, data.quantity);
+        NetworkServer.Destroy(item.gameObject);
+    }
+
+    [TargetRpc]
+    void TargetOnItemPickedUp(string itemType, int qty)
+    {
+        Inventory inv = GetComponent<Inventory>();
+        inv?.AddItem(new ItemData(itemType, qty, null));
+    }
+
+    /// <summary>Place a building. Server instantiates and spawns it for all clients.</summary>
+    [Command]
+    public void CmdPlaceBuilding(int buildIndex, Vector3 pos, Quaternion rot)
+    {
+        PlayerHandler ph = GetComponent<PlayerHandler>();
+        if (ph == null) return;
+        GameObject prefab = ph.GetBuildPrefab(buildIndex);
+        if (prefab == null) return;
+        GameObject placed = Instantiate(prefab, pos, rot);
+        NetworkServer.Spawn(placed);
+        IBuildable buildable = placed.GetComponent<IBuildable>()
+            ?? placed.GetComponentInChildren<IBuildable>();
+        buildable?.OnPlaced(gameObject);
+    }
+
     private void OnSyncedPositionChanged(Vector3 oldValue, Vector3 newValue)
     {
         targetPosition = newValue;
@@ -127,6 +221,10 @@ public class NetworkPlayer : NetworkBehaviour
         if (playerHandler != null)
         {
             playerHandler.enabled = isControlledLocally;
+            if (isControlledLocally)
+            {
+                playerHandler.SetNetworkPlayer(this);
+            }
         }
 
         Camera[] cameras = GetComponentsInChildren<Camera>(true);
