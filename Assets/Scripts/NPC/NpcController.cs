@@ -445,8 +445,8 @@ public class NpcController : NetworkBehaviour, INpc, IDamageable, ITextInfoOverl
         }
         actionTimer = GetEffectiveActionCooldown();
 
-        // Match player-style interaction: gathering deals damage through the same hit event path.
-        GameEvents.OnHit?.Invoke(new HitEvent(gameObject, gatherTarget, new HitEvent.HitCtx { dmg = attackDamage }));
+        // Server-authoritative gather action.
+        currentGatherable?.Gather(attackDamage);
         TryPickupNearbyItem();
     }
 
@@ -545,8 +545,19 @@ public class NpcController : NetworkBehaviour, INpc, IDamageable, ITextInfoOverl
             }
 
             GameObject itemObject = nearby[i].gameObject;
-            GameEvents.OnPickup?.Invoke(new PickupEvent(gameObject, itemObject, itemData));
-            pickable.OnPickup();
+            npcInventory.AddItem(itemData);
+
+            NetworkIdentity itemIdentity = itemObject.GetComponent<NetworkIdentity>()
+                ?? itemObject.GetComponentInParent<NetworkIdentity>();
+            if (itemIdentity != null && itemIdentity.netId != 0)
+            {
+                NetworkServer.Destroy(itemIdentity.gameObject);
+            }
+            else
+            {
+                pickable.OnPickup();
+            }
+
             if (enableVerboseLogs)
             {
                 Debug.Log($"{displayName} picked up {itemData.itemType}");
