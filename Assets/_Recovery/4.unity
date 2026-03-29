@@ -327,6 +327,9 @@ MonoBehaviour:
   raycastHeight: 200
   spawnYOffset: 0
   borderPadding: {x: 2, y: 2}
+  playerSpawnPointCount: 8
+  playerSpawnMinSpacing: 8
+  playerSpawnPlacementAttempts: 40
 --- !u!4 &2101641072
 Transform:
   m_ObjectHideFlags: 0

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Mirror;
 using UnityEngine;
 
 public class WorldCreator : MonoBehaviour
@@ -55,12 +56,19 @@ public class WorldCreator : MonoBehaviour
     [SerializeField] private float spawnYOffset = 0f;
     [SerializeField] private Vector2 borderPadding = new Vector2(2f, 2f);
 
+    [Header("Player Spawn Points")]
+    [SerializeField] private int playerSpawnPointCount = 8;
+    [SerializeField] private float playerSpawnMinSpacing = 8f;
+    [SerializeField] private int playerSpawnPlacementAttempts = 40;
+
     private const string GeneratedRootName = "__GeneratedWorld";
     private const string GeneratedGroundName = "__GeneratedGround";
+    private const string PlayerSpawnRootName = "__PlayerSpawnPoints";
+    private bool hasGenerated;
 
     void Start()
     {
-        if (generateOnStart)
+        if (generateOnStart && !hasGenerated)
         {
             GenerateWorld();
         }
@@ -69,6 +77,8 @@ public class WorldCreator : MonoBehaviour
     [ContextMenu("Generate World")]
     public void GenerateWorld()
     {
+        hasGenerated = true;
+
         if (clearPreviousGenerated)
         {
             ClearGeneratedWorld();
@@ -86,6 +96,9 @@ public class WorldCreator : MonoBehaviour
         SpawnCategoryEntries(environmentCategory, generatedRoot, rng);
         SpawnCategoryEntries(spawnerCategory, generatedRoot, rng);
         SpawnCategoryEntries(npcCategory, generatedRoot, rng);
+        CreatePlayerSpawnPoints(generatedRoot, rng);
+
+        Debug.Log("World generation complete.");
     }
 
     [ContextMenu("Clear Generated World")]
@@ -99,6 +112,9 @@ public class WorldCreator : MonoBehaviour
 
         if (Application.isPlaying)
         {
+            // Destroy is delayed to end-of-frame; rename first so immediate re-generation
+            // creates a fresh root instead of attaching to the soon-to-be-destroyed one.
+            existing.name = GeneratedRootName + "_Old";
             Destroy(existing.gameObject);
         }
         else
@@ -275,5 +291,68 @@ public class WorldCreator : MonoBehaviour
         }
 
         return true;
+    }
+
+    void CreatePlayerSpawnPoints(Transform root, System.Random rng)
+    {
+        int targetCount = Mathf.Max(1, playerSpawnPointCount);
+        float minSpacing = Mathf.Max(0f, playerSpawnMinSpacing);
+        int maxAttempts = Mathf.Max(1, playerSpawnPlacementAttempts);
+
+        Transform spawnRoot = root.Find(PlayerSpawnRootName);
+        if (spawnRoot == null)
+        {
+            spawnRoot = new GameObject(PlayerSpawnRootName).transform;
+            spawnRoot.SetParent(root, false);
+        }
+
+        ClearChildren(spawnRoot);
+
+        List<Vector3> placed = new List<Vector3>();
+
+        for (int i = 0; i < targetCount; i++)
+        {
+            bool placedSpawn = false;
+            for (int attempt = 0; attempt < maxAttempts; attempt++)
+            {
+                Vector3 candidate = GetRandomGroundPoint(rng);
+                if (!IsFarEnough(candidate, minSpacing, placed))
+                {
+                    continue;
+                }
+
+                GameObject spawnPointObj = new GameObject($"PlayerSpawn_{i + 1:00}");
+                spawnPointObj.transform.SetParent(spawnRoot, false);
+                spawnPointObj.transform.position = candidate;
+                spawnPointObj.transform.rotation = Quaternion.identity;
+                spawnPointObj.AddComponent<NetworkStartPosition>();
+
+                placed.Add(candidate);
+                placedSpawn = true;
+                break;
+            }
+
+            if (!placedSpawn)
+            {
+                Debug.LogWarning($"WorldCreator: Could not place spawn point {i + 1}/{targetCount}.", this);
+                break;
+            }
+        }
+    }
+
+    void ClearChildren(Transform parent)
+    {
+        for (int i = parent.childCount - 1; i >= 0; i--)
+        {
+            GameObject child = parent.GetChild(i).gameObject;
+            if (Application.isPlaying)
+            {
+                Destroy(child);
+            }
+            else
+            {
+                DestroyImmediate(child);
+            }
+        }
     }
 }

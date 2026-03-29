@@ -1498,6 +1498,10 @@ PrefabInstance:
       propertyPath: m_Center.y
       value: 1.5
       objectReference: {fileID: 0}
+    - target: {fileID: 5341245751264089122, guid: f565d472c62c2ec43b641af10f8adc57, type: 3}
+      propertyPath: sceneId
+      value: 2275148299
+      objectReference: {fileID: 0}
     - target: {fileID: 9125018743131308454, guid: f565d472c62c2ec43b641af10f8adc57, type: 3}
       propertyPath: buildRange
       value: 3

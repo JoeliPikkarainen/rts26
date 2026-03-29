@@ -1,52 +1,108 @@
 using Mirror;
 using UnityEngine;
 
+[RequireComponent(typeof(NetworkIdentity))]
 public class NetworkPlayer : NetworkBehaviour
 {
-    [SyncVar] public Vector3 syncedPosition;
-    [SyncVar] public Quaternion syncedRotation;
+    [Header("Sync")]
+    [SerializeField] private float sendInterval = 0.05f;
+    [SerializeField] private float interpolationSpeed = 12f;
+    [SerializeField] private float minPositionDeltaToSend = 0.001f;
+    [SerializeField] private float minRotationDeltaToSend = 0.1f;
+
+    [SyncVar(hook = nameof(OnSyncedPositionChanged))] private Vector3 syncedPosition;
+    [SyncVar(hook = nameof(OnSyncedRotationChanged))] private Quaternion syncedRotation;
     
     private PlayerHandler playerHandler;
     private Rigidbody rb;
-    private float sendRateTimer;
-    private float sendRate = 0.1f; // Send updates 10 times per second
+    private float sendTimer;
+    private Vector3 targetPosition;
+    private Quaternion targetRotation;
+    private Vector3 lastSentPosition;
+    private Quaternion lastSentRotation;
 
-    void Start()
+    void Awake()
     {
         playerHandler = GetComponent<PlayerHandler>();
         rb = GetComponent<Rigidbody>();
-        
-        if (!isLocalPlayer)
+
+        // Disable gameplay input by default; enable only on the local player instance.
+        if (playerHandler != null)
         {
-            // Disable input for remote players
-            if (playerHandler != null)
-                playerHandler.enabled = false;
+            playerHandler.enabled = false;
         }
+
+        targetPosition = transform.position;
+        targetRotation = transform.rotation;
+        lastSentPosition = transform.position;
+        lastSentRotation = transform.rotation;
+    }
+
+    public override void OnStartServer()
+    {
+        base.OnStartServer();
+        syncedPosition = transform.position;
+        syncedRotation = transform.rotation;
+    }
+
+    public override void OnStartClient()
+    {
+        base.OnStartClient();
+        ApplyLocalPlayerState(isLocalPlayer);
+    }
+
+    public override void OnStartLocalPlayer()
+    {
+        base.OnStartLocalPlayer();
+        ApplyLocalPlayerState(true);
+    }
+
+    public override void OnStopLocalPlayer()
+    {
+        ApplyLocalPlayerState(false);
+        base.OnStopLocalPlayer();
     }
 
     void FixedUpdate()
     {
-        if (!isLocalPlayer) return;
-
-        sendRateTimer += Time.fixedDeltaTime;
-        if (sendRateTimer >= sendRate)
+        if (!isLocalPlayer)
         {
-            CmdUpdatePlayerPosition(transform.position, transform.rotation);
-            sendRateTimer = 0f;
+            return;
         }
+
+        sendTimer += Time.fixedDeltaTime;
+        if (sendTimer < sendInterval)
+        {
+            return;
+        }
+
+        sendTimer = 0f;
+
+        Vector3 currentPos = transform.position;
+        Quaternion currentRot = transform.rotation;
+        bool movedEnough = (currentPos - lastSentPosition).sqrMagnitude > minPositionDeltaToSend;
+        bool rotatedEnough = Quaternion.Angle(currentRot, lastSentRotation) > minRotationDeltaToSend;
+
+        if (!movedEnough && !rotatedEnough)
+        {
+            return;
+        }
+
+        lastSentPosition = currentPos;
+        lastSentRotation = currentRot;
+        CmdUpdatePlayerPosition(currentPos, currentRot);
     }
 
     void Update()
     {
-        if (isLocalPlayer) return;
-        
-        // Smoothly move remote players to synced position
-        if (rb != null)
+        if (isLocalPlayer)
         {
-            rb.linearVelocity = Vector3.zero; // Stop physics for remote players
-            transform.position = Vector3.Lerp(transform.position, syncedPosition, Time.deltaTime * 5f);
-            transform.rotation = Quaternion.Lerp(transform.rotation, syncedRotation, Time.deltaTime * 5f);
+            return;
         }
+        
+        float lerpT = Mathf.Clamp01(Time.deltaTime * interpolationSpeed);
+        transform.position = Vector3.Lerp(transform.position, targetPosition, lerpT);
+        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, lerpT);
     }
 
     [Command]
@@ -54,5 +110,42 @@ public class NetworkPlayer : NetworkBehaviour
     {
         syncedPosition = pos;
         syncedRotation = rot;
+    }
+
+    private void OnSyncedPositionChanged(Vector3 oldValue, Vector3 newValue)
+    {
+        targetPosition = newValue;
+    }
+
+    private void OnSyncedRotationChanged(Quaternion oldValue, Quaternion newValue)
+    {
+        targetRotation = newValue;
+    }
+
+    private void ApplyLocalPlayerState(bool isControlledLocally)
+    {
+        if (playerHandler != null)
+        {
+            playerHandler.enabled = isControlledLocally;
+        }
+
+        Camera[] cameras = GetComponentsInChildren<Camera>(true);
+        for (int i = 0; i < cameras.Length; i++)
+        {
+            cameras[i].enabled = isControlledLocally;
+        }
+
+        AudioListener[] listeners = GetComponentsInChildren<AudioListener>(true);
+        for (int i = 0; i < listeners.Length; i++)
+        {
+            listeners[i].enabled = isControlledLocally;
+        }
+
+        if (rb != null)
+        {
+            rb.isKinematic = !isControlledLocally;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
     }
 }

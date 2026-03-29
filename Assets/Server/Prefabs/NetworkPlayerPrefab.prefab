@@ -13,6 +13,10 @@ GameObject:
   - component: {fileID: 6123297906915719502}
   - component: {fileID: 3892205769804103697}
   - component: {fileID: 1946226833069766681}
+  - component: {fileID: 7568191887461507316}
+  - component: {fileID: 5446900050850788744}
+  - component: {fileID: 8946819865814154144}
+  - component: {fileID: 8255590503125282045}
   m_Layer: 0
   m_Name: NetworkPlayerPrefab
   m_TagString: Untagged
@@ -128,5 +132,99 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  syncedPosition: {x: 0, y: 0, z: 0}
-  syncedRotation: {x: 0, y: 0, z: 0, w: 0}
+  sendInterval: 0.05
+  interpolationSpeed: 12
+  minPositionDeltaToSend: 0.001
+  minRotationDeltaToSend: 0.1
+--- !u!114 &7568191887461507316
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2459434815632641773}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b91ecbcc199f4492b9a91e820070131, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Mirror::Mirror.NetworkIdentity
+  sceneId: 0
+  _assetId: 666094718
+  serverOnly: 0
+  visibility: 0
+  hasSpawned: 0
+--- !u!114 &5446900050850788744
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2459434815632641773}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c688c684f9d92247bbf260c895d6724, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Inventory
+  maxTotalItemCount: 0
+  maxUniqueItemTypeCount: 0
+--- !u!114 &8946819865814154144
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2459434815632641773}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 05aaed750fe943c4eb2683bf9ec3d78c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerHandler
+  moveSpeed: 5
+  interactRange: 10
+  pickupRange: 2.5
+  damage: 1
+  actionCooldown: 0.55
+  attackSpeedMultiplier: 1
+  maxHealth: 100
+  rotationSpeed: 200
+  showCrosshair: 1
+  crosshairVerticalViewport: 0.4
+  showDebugOverlay: 1
+  enableBuildSystem: 1
+  buildRange: 12
+  buildGridSnap: {x: 1, y: 0, z: 1}
+  buildPlacementMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  buildPrefabs: []
+  buildGhostValidColor: {r: 0.2, g: 1, b: 0.2, a: 0.5}
+  buildGhostInvalidColor: {r: 1, g: 0.2, b: 0.2, a: 0.5}
+  weaponSocketTransform: {fileID: 0}
+  debugCameraRays: 0
+--- !u!54 &8255590503125282045
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2459434815632641773}
+  serializedVersion: 5
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 1
+  m_IsKinematic: 0
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0

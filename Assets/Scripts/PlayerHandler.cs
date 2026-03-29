@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections.Generic;
 using System;
+using Mirror;
 
 [RequireComponent(typeof(Inventory))]
 public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
@@ -298,8 +299,13 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         if (movementInput.sqrMagnitude > 0.01f)
         {
             // Camera-relative direction
-            Vector3 camForward = Camera.main.transform.forward;
-            Vector3 camRight = Camera.main.transform.right;
+            if (mainCamera == null)
+            {
+                return;
+            }
+
+            Vector3 camForward = mainCamera.transform.forward;
+            Vector3 camRight = mainCamera.transform.right;
 
             // Flatten camera vectors to horizontal plane
             camForward.y = 0;
@@ -1805,7 +1811,15 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
             }
         }
 
-        return $"Player\nHP: {currentHealth}/{maxHealth}\nDMG: {GetCurrentDamage()}\nWeapon: {weaponName}";
+        string displayName = gameObject.name;
+        NetworkIdentity identity = GetComponent<NetworkIdentity>();
+        if (identity != null)
+        {
+            string role = identity.isLocalPlayer ? "Local" : "Remote";
+            displayName = $"{displayName} [{role} | netId={identity.netId}]";
+        }
+
+        return $"{displayName}\nHP: {currentHealth}/{maxHealth}\nDMG: {GetCurrentDamage()}\nWeapon: {weaponName}";
     }
 
     void OnDrawGizmos()

@@ -10,13 +10,15 @@ GameObject:
   m_Component:
   - component: {fileID: 1879574635062363278}
   - component: {fileID: 7695851293638709337}
+  - component: {fileID: -2347873215415501327}
   - component: {fileID: 1936205116375015044}
   - component: {fileID: 4426905798079744457}
   - component: {fileID: 6515470519689028655}
   - component: {fileID: 9125018743131308454}
   - component: {fileID: 3909139195880257724}
   - component: {fileID: 2888899833901177587}
-  - component: {fileID: -2347873215415501327}
+  - component: {fileID: -7867476597500951022}
+  - component: {fileID: 5341245751264089122}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -39,7 +41,6 @@ Transform:
   m_Children:
   - {fileID: 1800050712886769402}
   - {fileID: 2849777695293750927}
-  - {fileID: 2471645061560720366}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!23 &7695851293638709337
@@ -91,6 +92,14 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!33 &-2347873215415501327
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1772290428753285830}
+  m_Mesh: {fileID: 0}
 --- !u!65 &1936205116375015044
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -284,6 +293,7 @@ MonoBehaviour:
   buildGhostValidColor: {r: 0.2, g: 1, b: 0.2, a: 0.5}
   buildGhostInvalidColor: {r: 1, g: 0.2, b: 0.2, a: 0.5}
   weaponSocketTransform: {fileID: 2471645061560720366}
+  debugCameraRays: 0
 --- !u!114 &3909139195880257724
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -316,14 +326,42 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Inventory
   maxTotalItemCount: 0
   maxUniqueItemTypeCount: 0
---- !u!33 &-2347873215415501327
-MeshFilter:
+--- !u!114 &-7867476597500951022
+MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1772290428753285830}
-  m_Mesh: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 59741a57315415e48b5cc88b4c5786da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkPlayer
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  sendInterval: 0.05
+  interpolationSpeed: 12
+  minPositionDeltaToSend: 0.001
+  minRotationDeltaToSend: 0.1
+--- !u!114 &5341245751264089122
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1772290428753285830}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b91ecbcc199f4492b9a91e820070131, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Mirror::Mirror.NetworkIdentity
+  sceneId: 0
+  _assetId: 2103966826
+  serverOnly: 0
+  visibility: 0
+  hasSpawned: 0
 --- !u!1 &3894002398443291072
 GameObject:
   m_ObjectHideFlags: 0
@@ -348,12 +386,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3894002398443291072}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.884, y: 1.445, z: -0.336}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.85400003, y: 1.4350001, z: -0.11853999}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1879574635062363278}
+  m_Father: {fileID: 2849777695293750927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &5117424851710837338
 GameObject:
@@ -578,7 +616,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: de13a7420582ded45a8d7d3f96889aca, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2471645061560720366}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: de13a7420582ded45a8d7d3f96889aca, type: 3}
 --- !u!4 &2849777695293750927 stripped
