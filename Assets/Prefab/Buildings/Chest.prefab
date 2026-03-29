@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 3689983131685010153}
   - component: {fileID: 8450300756787919278}
   - component: {fileID: 317156213173326733}
+  - component: {fileID: -8880127005930799937}
   m_Layer: 0
   m_Name: Chest
   m_TagString: Untagged
@@ -135,3 +136,20 @@ MonoBehaviour:
     quantity: 1
   - itemType: Stone
     quantity: 1
+--- !u!114 &-8880127005930799937
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4168645261038454558}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b91ecbcc199f4492b9a91e820070131, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Mirror::Mirror.NetworkIdentity
+  sceneId: 0
+  _assetId: 2501800916
+  serverOnly: 0
+  visibility: 0
+  hasSpawned: 0

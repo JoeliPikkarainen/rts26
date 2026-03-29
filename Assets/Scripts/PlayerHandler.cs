@@ -94,6 +94,38 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         return buildPrefabs[index];
     }
 
+    public void RegisterBuildPrefabsOnClient()
+    {
+        if (!NetworkClient.active || buildPrefabs == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < buildPrefabs.Length; i++)
+        {
+            GameObject prefab = buildPrefabs[i];
+            if (prefab == null)
+            {
+                continue;
+            }
+
+            if (!prefab.TryGetComponent(out NetworkIdentity identity))
+            {
+                continue;
+            }
+
+            if (identity.assetId == 0)
+            {
+                continue;
+            }
+
+            if (!NetworkClient.prefabs.ContainsKey(identity.assetId))
+            {
+                NetworkClient.RegisterPrefab(prefab);
+            }
+        }
+    }
+
     void Start()
     {
         rb = GetComponent<Rigidbody>();

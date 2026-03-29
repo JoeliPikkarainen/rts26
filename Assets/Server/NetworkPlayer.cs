@@ -48,6 +48,12 @@ public class NetworkPlayer : NetworkBehaviour
     public override void OnStartClient()
     {
         base.OnStartClient();
+
+        if (playerHandler != null)
+        {
+            playerHandler.RegisterBuildPrefabsOnClient();
+        }
+
         ApplyLocalPlayerState(isLocalPlayer);
     }
 
