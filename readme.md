@@ -51,11 +51,11 @@ Game loop:
 | World Creator           | Deterministic playtest world generator with optional ground generation and weighted spawning for environment/spawners/NPCs.              | Done (Demo) |
 | Main Menu                 | Single Player / Multiplayer / Settings / Quit                                                                                         | Done (Demo) |
 | Multiplayer Template     | Template to host or join. Lobby and self hostable and game session                                                                      | Done (Demo) |
-| Base Defense Structures | Add towers and wall segments with simple placement and blocking/collision rules.                                                         | Planned     |
+| Base Defense Structures | Add towers and wall segments with simple placement and blocking/collision rules.                                                         | Planned (Attempted)    |
 | Enemy Wave/AI           | Add wave spawning, scaling difficulty, and timing system to pressure base defense loop.                                                  | Planned     |
 | Wardrum Powerup         | Implement wardrum effect to trigger temporary all-in NPC attack behavior.                                                                | Planned     |
 | Save/Load               | Save world state (built structures, recruited NPC ownership/state, inventories).                                                         | Planned     |
 | UI/UX Polish            | Improve build menu readability, inventory HUD, status feedback, and control hints for demo clarity.                                      | Planned     |
 
-Approximately hours spent 22h
+Approximately hours spent 24h
 
