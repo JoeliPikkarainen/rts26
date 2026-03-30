@@ -66,6 +66,7 @@ public class NpcController : NetworkBehaviour, INpc, IDamageable, ITextInfoOverl
     private Vector3 wanderTarget;
     private bool hasWanderTarget;
     private float wanderPauseTimer;
+    private float nextGatherStatusLogTime;
     private StorageChestBuilding storageTarget;
     private Vector3 targetPosition;
     private Quaternion targetRotation;
@@ -392,6 +393,7 @@ public class NpcController : NetworkBehaviour, INpc, IDamageable, ITextInfoOverl
     {
         if (npcInventory != null && npcInventory.IsFull())
         {
+            LogGatherStatusThrottled($"{displayName} inventory full; switching to storage deposit.");
             UpdateStorageDeposit();
             return;
         }
@@ -403,17 +405,23 @@ public class NpcController : NetworkBehaviour, INpc, IDamageable, ITextInfoOverl
             gatherTarget = FindNearestGatherableTarget();
             if (gatherTarget == null)
             {
+                LogGatherStatusThrottled($"{displayName} found no usable gather targets in range {gatherSearchRadius:0.0} ({gatherPreference}).");
                 TryPickupNearbyItem();
                 return;
             }
         }
 
-        IGatherable currentGatherable = gatherTarget.GetComponent<IGatherable>() ?? gatherTarget.GetComponentInParent<IGatherable>();
-        if (currentGatherable == null)
+        if (!IsGatherTargetUsable(gatherTarget))
         {
+            if (enableVerboseLogs && gatherTarget != null)
+            {
+                Debug.Log($"{displayName} skipping depleted gather target {gatherTarget.name}");
+            }
+
             gatherTarget = FindNearestGatherableTarget();
             if (gatherTarget == null)
             {
+                LogGatherStatusThrottled($"{displayName} found no replacement gather target after skipping depleted node.");
                 TryPickupNearbyItem();
                 return;
             }
@@ -429,6 +437,22 @@ public class NpcController : NetworkBehaviour, INpc, IDamageable, ITextInfoOverl
             gatherRetargetTimer = 1.0f;
         }
 
+        // Resolve gatherable from the final active target after any retargeting.
+        IGatherable currentGatherable = gatherTarget != null
+            ? (gatherTarget.GetComponent<IGatherable>() ?? gatherTarget.GetComponentInParent<IGatherable>())
+            : null;
+        if (currentGatherable == null)
+        {
+            if (enableVerboseLogs && gatherTarget != null)
+            {
+                Debug.LogWarning($"{displayName} gather target '{gatherTarget.name}' has no IGatherable. Retargeting.");
+            }
+
+            gatherTarget = null;
+            TryPickupNearbyItem();
+            return;
+        }
+
         float distToSurface = DistanceToTargetSurfaceXZ(gatherTarget);
         float stopDistance = Mathf.Clamp(gatherStopDistance, 0.2f, gatherRange);
         if (distToSurface > stopDistance)
@@ -440,6 +464,7 @@ public class NpcController : NetworkBehaviour, INpc, IDamageable, ITextInfoOverl
 
         if (actionTimer > 0f)
         {
+            LogGatherStatusThrottled($"{displayName} waiting on gather cooldown ({actionTimer:0.00}s).");
             TryPickupNearbyItem();
             return;
         }
@@ -447,7 +472,27 @@ public class NpcController : NetworkBehaviour, INpc, IDamageable, ITextInfoOverl
 
         // Server-authoritative gather action.
         currentGatherable?.Gather(attackDamage);
+        if (enableVerboseLogs && gatherTarget != null)
+        {
+            Debug.Log($"{displayName} attempted gather hit ({attackDamage} dmg) on {gatherTarget.name}");
+        }
         TryPickupNearbyItem();
+    }
+
+    void LogGatherStatusThrottled(string message)
+    {
+        if (!enableVerboseLogs)
+        {
+            return;
+        }
+
+        if (Time.time < nextGatherStatusLogTime)
+        {
+            return;
+        }
+
+        nextGatherStatusLogTime = Time.time + 1.0f;
+        Debug.Log(message);
     }
 
     void UpdateStorageDeposit()
@@ -584,6 +629,11 @@ public class NpcController : NetworkBehaviour, INpc, IDamageable, ITextInfoOverl
                 continue;
             }
 
+            if (!IsGatherTargetUsable(allBehaviours[i].gameObject))
+            {
+                continue;
+            }
+
             float distance = Vector3.Distance(transform.position, allBehaviours[i].transform.position);
             if (distance > gatherSearchRadius)
             {
@@ -597,7 +647,27 @@ public class NpcController : NetworkBehaviour, INpc, IDamageable, ITextInfoOverl
             }
         }
 
+        if(!nearestTarget)
+        {
+            Debug.Log("Could not find any gatherable targets.");
+        }
         return nearestTarget;
+    }
+
+    bool IsGatherTargetUsable(GameObject target)
+    {
+        if (target == null || !target.activeInHierarchy)
+        {
+            return false;
+        }
+
+        GenericNode node = target.GetComponent<GenericNode>() ?? target.GetComponentInParent<GenericNode>();
+        if (node != null && node.IsDepleted())
+        {
+            return false;
+        }
+
+        return true;
     }
 
     StorageChestBuilding FindNearestStorageChest()
@@ -644,12 +714,16 @@ public class NpcController : NetworkBehaviour, INpc, IDamageable, ITextInfoOverl
 
         if (gatherPreference == GatherResourcePreference.Tree)
         {
-            return candidate.GetComponent<Tree>() != null || candidate.GetComponentInParent<Tree>() != null;
+            GenericNode treeNode = candidate.GetComponent<GenericNode>() ?? candidate.GetComponentInParent<GenericNode>();
+            return (candidate.GetComponent<Tree>() != null || candidate.GetComponentInParent<Tree>() != null)
+                || (treeNode != null && treeNode.MatchesPreference(GatherResourcePreference.Tree));
         }
 
         if (gatherPreference == GatherResourcePreference.Rock)
         {
-            return candidate.GetComponent<RockNode>() != null || candidate.GetComponentInParent<RockNode>() != null;
+            GenericNode rockNode = candidate.GetComponent<GenericNode>() ?? candidate.GetComponentInParent<GenericNode>();
+            return (candidate.GetComponent<RockNode>() != null || candidate.GetComponentInParent<RockNode>() != null)
+                || (rockNode != null && rockNode.MatchesPreference(GatherResourcePreference.Rock));
         }
 
         return true;

@@ -670,12 +670,16 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
 
         if (preference == GatherResourcePreference.Tree)
         {
-            return candidate.GetComponent<Tree>() != null || candidate.GetComponentInParent<Tree>() != null;
+            GenericNode treeNode = candidate.GetComponent<GenericNode>() ?? candidate.GetComponentInParent<GenericNode>();
+            return (candidate.GetComponent<Tree>() != null || candidate.GetComponentInParent<Tree>() != null)
+                || (treeNode != null && treeNode.MatchesPreference(GatherResourcePreference.Tree));
         }
 
         if (preference == GatherResourcePreference.Rock)
         {
-            return candidate.GetComponent<RockNode>() != null || candidate.GetComponentInParent<RockNode>() != null;
+            GenericNode rockNode = candidate.GetComponent<GenericNode>() ?? candidate.GetComponentInParent<GenericNode>();
+            return (candidate.GetComponent<RockNode>() != null || candidate.GetComponentInParent<RockNode>() != null)
+                || (rockNode != null && rockNode.MatchesPreference(GatherResourcePreference.Rock));
         }
 
         return true;

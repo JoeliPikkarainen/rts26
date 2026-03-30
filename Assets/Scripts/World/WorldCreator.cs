@@ -184,10 +184,10 @@ public class WorldCreator : MonoBehaviour
             RegisterNetworkPrefabIfValid(trees[i].GetDropPrefab(), entryId + "/TreeDrop", processedAssetIds);
         }
 
-        RockNode[] rocks = sourcePrefab.GetComponentsInChildren<RockNode>(true);
-        for (int i = 0; i < rocks.Length; i++)
+        GenericNode[] nodes = sourcePrefab.GetComponentsInChildren<GenericNode>(true);
+        for (int i = 0; i < nodes.Length; i++)
         {
-            RegisterNetworkPrefabIfValid(rocks[i].GetDropPrefab(), entryId + "/RockDrop", processedAssetIds);
+            RegisterNetworkPrefabIfValid(nodes[i].GetDropPrefab(), entryId + "/NodeDrop", processedAssetIds);
         }
     }
 

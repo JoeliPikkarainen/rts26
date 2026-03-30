@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 3655437971459853155}
   - component: {fileID: 5136405610756651863}
   - component: {fileID: 932040950890334563}
+  - component: {fileID: 3299981242934476332}
   m_Layer: 0
   m_Name: NPC1
   m_TagString: Untagged
@@ -129,6 +130,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6c688c684f9d92247bbf260c895d6724, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Inventory
+  maxTotalItemCount: 0
+  maxUniqueItemTypeCount: 0
 --- !u!54 &5136405610756651863
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -168,6 +171,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 90bcc3e7640601a4fada5eedb6b09497, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NpcController
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
   npcId: goblin
   displayName: Goblin
   maxHealth: 30
@@ -188,10 +194,31 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   actionCooldown: 1.5
+  actionSpeedMultiplier: 1
+  inventoryLimit: 6
+  storageSearchRadius: 60
+  storageStopDistance: 1.25
   wanderRadius: 7
   wanderArriveDistance: 0.5
   wanderPauseDurationRange: {x: 0.8, y: 2}
   startBehaviour: 5
   isRecruitable: 1
   startsHostile: 0
-  enableVerboseLogs: 0
+  enableVerboseLogs: 1
+--- !u!114 &3299981242934476332
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7345081136456254546}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b91ecbcc199f4492b9a91e820070131, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Mirror::Mirror.NetworkIdentity
+  sceneId: 0
+  _assetId: 2178697463
+  serverOnly: 0
+  visibility: 0
+  hasSpawned: 0

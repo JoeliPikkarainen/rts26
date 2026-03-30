@@ -131,11 +131,14 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  logPrefab: {fileID: 482992993898891931, guid: bb2d3068d4556b042816128671577241, type: 3}
-  logDropCount: 1
+  nodeName: Tree
+  resourcePreference: 1
+  startHealth: 5
+  dropPrefab: {fileID: 482992993898891931, guid: bb2d3068d4556b042816128671577241, type: 3}
+  dropCount: 1
+  dropHeight: 0.25
   dropScatterRadius: 0.5
   depletedTint: {r: 0.35, g: 0.35, b: 0.35, a: 1}
-  startHealth: 5
 --- !u!114 &-1491143792893729109
 MonoBehaviour:
   m_ObjectHideFlags: 0

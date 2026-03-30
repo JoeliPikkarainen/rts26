@@ -108,9 +108,12 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
+  nodeName: Rock
+  resourcePreference: 2
   startHealth: 8
-  stonePrefab: {fileID: 2774795837449536054, guid: b8c518947bba8a247a427518edf74409, type: 3}
-  stoneDropCount: 1
+  dropPrefab: {fileID: 2774795837449536054, guid: b8c518947bba8a247a427518edf74409, type: 3}
+  dropCount: 1
+  dropHeight: 0.25
   dropScatterRadius: 0.4
   depletedTint: {r: 0.25, g: 0.25, b: 0.25, a: 1}
 --- !u!65 &947098355879790707
