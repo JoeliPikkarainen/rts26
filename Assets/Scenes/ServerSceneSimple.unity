@@ -365,11 +365,20 @@ MonoBehaviour:
   disconnectInactiveConnections: 0
   disconnectInactiveTimeout: 60
   authenticator: {fileID: 0}
-  playerPrefab: {fileID: 0}
+  playerPrefab: {fileID: 4974797514177843240, guid: f565d472c62c2ec43b641af10f8adc57, type: 3}
   autoCreatePlayer: 1
   playerSpawnMethod: 0
   spawnPrefabs:
-  - {fileID: 0}
+  - {fileID: 4451539087776509870, guid: b4c92fac457d0de478c84161ee2a48d2, type: 3}
+  - {fileID: 4168645261038454558, guid: 88841087b690c3e40b2a6b3ec8ff15e0, type: 3}
+  - {fileID: 4129618807708620643, guid: 91e174cd4af88984cb8a1f0345a87fc7, type: 3}
+  - {fileID: 482992993898891931, guid: bb2d3068d4556b042816128671577241, type: 3}
+  - {fileID: 2774795837449536054, guid: b8c518947bba8a247a427518edf74409, type: 3}
+  - {fileID: 6175708925539154374, guid: e0a4d4c03f439b644a90aa0330cfb149, type: 3}
+  - {fileID: 381691323341613716, guid: 160441b8861652942a6d5582b609bf67, type: 3}
+  - {fileID: 7345081136456254546, guid: 0c3412fef298baf4898262b9ae6529fc, type: 3}
+  - {fileID: 7345081136456254546, guid: a1d52984a8a2d094cb7b6a121ab2f7e2, type: 3}
+  - {fileID: 2459434815632641773, guid: d681c15c451499a42bc0c7201d885148, type: 3}
   exceptionsDisconnect: 1
   snapshotSettings:
     bufferTimeMultiplier: 2
@@ -386,10 +395,15 @@ MonoBehaviour:
   evaluationInterval: 3
   timeInterpolationGui: 0
   multiplayerLobbyScene: Assets/Scenes/MultiplayerLobbyScene.unity
-  multiplayerGameScene: Assets/Scenes/GeneratorScene.unity
+  multiplayerGameScene: Assets/Scenes/MultiPlayerGameSceneTemplate1.unity
+  gameplayWorldMode: 1
+  customTerrainPrefab: {fileID: 4451539087776509870, guid: b4c92fac457d0de478c84161ee2a48d2, type: 3}
+  customTerrainPosition: {x: 0, y: 0, z: 0}
+  customTerrainRotationEuler: {x: 0, y: 0, z: 0}
+  customTerrainSpawnHeightOffset: 2
   autoStartWhenHostConnects: 0
   roomPlayerPrefab: {fileID: 0}
-  gamePlayerPrefab: {fileID: -7867476597500951022, guid: f565d472c62c2ec43b641af10f8adc57, type: 3}
+  gamePlayerPrefab: {fileID: 5711528109006308604, guid: f565d472c62c2ec43b641af10f8adc57, type: 3}
 --- !u!4 &491116340
 Transform:
   m_ObjectHideFlags: 0
@@ -543,6 +557,51 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1388378378
+GameObject:
+  m_ObjectHideFlags: 19
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1388378380}
+  - component: {fileID: 1388378379}
+  m_Layer: 0
+  m_Name: PrefabPainterSceneSettings
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1388378379
+MonoBehaviour:
+  m_ObjectHideFlags: 19
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1388378378}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d0d71238b38a4a38b35b955fbf5c019, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::nTools.PrefabPainter.PrefabPainterSceneSettings
+  parentForPrefabs: {fileID: 0}
+--- !u!4 &1388378380
+Transform:
+  m_ObjectHideFlags: 19
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1388378378}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -550,3 +609,4 @@ SceneRoots:
   - {fileID: 961739753}
   - {fileID: 203844589}
   - {fileID: 491116340}
+  - {fileID: 1388378380}

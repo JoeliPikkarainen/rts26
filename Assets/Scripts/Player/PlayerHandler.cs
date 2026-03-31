@@ -129,6 +129,10 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
     void Start()
     {
         rb = GetComponent<Rigidbody>();
+        // Prevent the rigidbody from tumbling on slopes. Only Y rotation is
+        // driven by code (toward movement direction), so freeze the other axes.
+        rb.constraints = RigidbodyConstraints.FreezeRotationX
+                       | RigidbodyConstraints.FreezeRotationZ;
         inventory = GetComponent<Inventory>();
         mainCamera = Camera.main;
         Cursor.lockState = CursorLockMode.Locked;
@@ -360,8 +364,16 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
             Vector3 moveDir = camForward * movementInput.z + camRight * movementInput.x;
             moveDir.Normalize();
 
+            // Project movement along the ground slope so the player walks up/down
+            // hills instead of pushing into the slope face.
+            Vector3 slopedMoveDir = moveDir;
+            if (Physics.SphereCast(rb.position + Vector3.up * 0.1f, 0.25f, Vector3.down, out RaycastHit groundHit, 0.5f, ~0, QueryTriggerInteraction.Ignore))
+            {
+                slopedMoveDir = Vector3.ProjectOnPlane(moveDir, groundHit.normal).normalized;
+            }
+
             // Move
-            Vector3 movement = moveDir * moveSpeed * Time.fixedDeltaTime;
+            Vector3 movement = slopedMoveDir * moveSpeed * Time.fixedDeltaTime;
             rb.MovePosition(rb.position + movement);
 
             // Rotate player toward movement direction (Y axis only)

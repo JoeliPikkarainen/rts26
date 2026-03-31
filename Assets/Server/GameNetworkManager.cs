@@ -13,9 +13,22 @@ public struct LobbyPlayersSnapshotMessage : NetworkMessage
 
 public class GameNetworkManager : NetworkManager
 {
+    private enum GameplayWorldMode
+    {
+        WorldCreator,
+        CustomTerrainPrefab
+    }
+
     [Header("Scenes")]
     [Scene] [SerializeField] private string multiplayerLobbyScene = "MultiPlayerLobbyScene";
     [Scene] [SerializeField] private string multiplayerGameScene = "GeneratorScene";
+
+    [Header("Gameplay World")]
+    [SerializeField] private GameplayWorldMode gameplayWorldMode = GameplayWorldMode.WorldCreator;
+    [SerializeField] private GameObject customTerrainPrefab;
+    [SerializeField] private Vector3 customTerrainPosition = Vector3.zero;
+    [SerializeField] private Vector3 customTerrainRotationEuler = Vector3.zero;
+    [SerializeField] private float customTerrainSpawnHeightOffset = 2f;
 
     [Header("Lobby")]
     [SerializeField] private bool autoStartWhenHostConnects;
@@ -31,6 +44,8 @@ public class GameNetworkManager : NetworkManager
     private readonly Dictionary<int, string> connectedLobbyPlayers = new Dictionary<int, string>();
     private bool pendingGameSceneStart;
     private bool pendingGameplayWorldInitialization;
+    private GameObject spawnedCustomTerrain;
+    private int spawnedPlayerCount;
 
     public static event Action<IReadOnlyList<string>> LobbyPlayersUpdated;
 
@@ -155,6 +170,12 @@ public class GameNetworkManager : NetworkManager
             return;
         }
 
+        if (gameplayWorldMode == GameplayWorldMode.CustomTerrainPrefab)
+        {
+            EnsureCustomTerrainForClient();
+            return;
+        }
+
         WorldCreator worldCreator = FindObjectOfType<WorldCreator>();
         if (worldCreator != null)
         {
@@ -255,6 +276,12 @@ public class GameNetworkManager : NetworkManager
 
     private void PrepareGameplayWorld()
     {
+        if (gameplayWorldMode == GameplayWorldMode.CustomTerrainPrefab)
+        {
+            SpawnCustomTerrainOnServer();
+            return;
+        }
+
         WorldCreator worldCreator = FindObjectOfType<WorldCreator>();
         if (worldCreator == null)
         {
@@ -263,6 +290,58 @@ public class GameNetworkManager : NetworkManager
         }
 
         worldCreator.GenerateWorld();
+    }
+
+    private void SpawnCustomTerrainOnServer()
+    {
+        if (customTerrainPrefab == null)
+        {
+            Debug.LogWarning("Custom terrain mode is active but no customTerrainPrefab is assigned.");
+            return;
+        }
+
+        if (spawnedCustomTerrain != null)
+        {
+            return;
+        }
+
+        Quaternion rotation = Quaternion.Euler(customTerrainRotationEuler);
+        spawnedCustomTerrain = Instantiate(customTerrainPrefab, customTerrainPosition, rotation);
+        spawnedCustomTerrain.name = customTerrainPrefab.name;
+
+        if (spawnedCustomTerrain.TryGetComponent(out NetworkIdentity identity))
+        {
+            if (!identity.isServer)
+            {
+                NetworkServer.Spawn(spawnedCustomTerrain);
+            }
+        }
+        else
+        {
+            Debug.LogWarning("Custom terrain prefab has no NetworkIdentity. It will only exist on server/host unless clients also instantiate it locally.");
+        }
+    }
+
+    private void EnsureCustomTerrainForClient()
+    {
+        if (customTerrainPrefab == null)
+        {
+            return;
+        }
+
+        if (spawnedCustomTerrain != null)
+        {
+            return;
+        }
+
+        if (customTerrainPrefab.TryGetComponent(out NetworkIdentity _))
+        {
+            return;
+        }
+
+        Quaternion rotation = Quaternion.Euler(customTerrainRotationEuler);
+        spawnedCustomTerrain = Instantiate(customTerrainPrefab, customTerrainPosition, rotation);
+        spawnedCustomTerrain.name = customTerrainPrefab.name;
     }
 
     private void SpawnMissingPlayers()
@@ -300,13 +379,147 @@ public class GameNetworkManager : NetworkManager
         }
 
         Transform spawnPoint = GetStartPosition();
-        GameObject player = spawnPoint != null
-            ? Instantiate(prefabToSpawn, spawnPoint.position, spawnPoint.rotation)
-            : Instantiate(prefabToSpawn);
+        GameObject player;
+        if (spawnPoint != null)
+        {
+            player = Instantiate(prefabToSpawn, spawnPoint.position, spawnPoint.rotation);
+        }
+        else if (TryGetFallbackSpawnPose(conn.connectionId, out Vector3 fallbackPosition, out Quaternion fallbackRotation))
+        {
+            player = Instantiate(prefabToSpawn, fallbackPosition, fallbackRotation);
+        }
+        else
+        {
+            player = Instantiate(prefabToSpawn);
+        }
+
+        spawnedPlayerCount++;
 
         player.name = $"{prefabToSpawn.name} [connId={conn.connectionId}]";
         NetworkServer.AddPlayerForConnection(conn, player);
         Debug.Log($"Player spawned for connection {conn.connectionId}");
+    }
+
+    private bool TryGetFallbackSpawnPose(int connectionId, out Vector3 position, out Quaternion rotation)
+    {
+        rotation = Quaternion.identity;
+
+        if (gameplayWorldMode == GameplayWorldMode.CustomTerrainPrefab && TryGetCustomTerrainSpawnPosition(connectionId, out position))
+        {
+            return true;
+        }
+
+        position = Vector3.zero;
+        return false;
+    }
+
+    private bool TryGetCustomTerrainSpawnPosition(int connectionId, out Vector3 position)
+    {
+        position = Vector3.zero;
+
+        GameObject terrainRoot = spawnedCustomTerrain;
+        if (terrainRoot == null)
+        {
+            return false;
+        }
+
+        if (!TryGetWorldBounds(terrainRoot, out Bounds bounds))
+        {
+            return false;
+        }
+
+        int seed = (connectionId * 73856093) ^ (spawnedPlayerCount * 19349663);
+        System.Random rng = new System.Random(seed);
+
+        float minX = bounds.min.x;
+        float maxX = bounds.max.x;
+        float minZ = bounds.min.z;
+        float maxZ = bounds.max.z;
+
+        float padX = Mathf.Max(1f, (maxX - minX) * 0.08f);
+        float padZ = Mathf.Max(1f, (maxZ - minZ) * 0.08f);
+
+        minX += padX;
+        maxX -= padX;
+        minZ += padZ;
+        maxZ -= padZ;
+
+        if (minX > maxX)
+        {
+            float centerX = bounds.center.x;
+            minX = centerX;
+            maxX = centerX;
+        }
+
+        if (minZ > maxZ)
+        {
+            float centerZ = bounds.center.z;
+            minZ = centerZ;
+            maxZ = centerZ;
+        }
+
+        float x = Mathf.Lerp(minX, maxX, (float)rng.NextDouble());
+        float z = Mathf.Lerp(minZ, maxZ, (float)rng.NextDouble());
+        Vector3 rayStart = new Vector3(x, bounds.max.y + 200f, z);
+
+        if (Physics.Raycast(rayStart, Vector3.down, out RaycastHit hit, 500f, ~0, QueryTriggerInteraction.Ignore))
+        {
+            position = hit.point + Vector3.up * Mathf.Max(0.5f, customTerrainSpawnHeightOffset);
+            return true;
+        }
+
+        position = new Vector3(x, bounds.max.y + Mathf.Max(0.5f, customTerrainSpawnHeightOffset), z);
+        return true;
+    }
+
+    private static bool TryGetWorldBounds(GameObject root, out Bounds bounds)
+    {
+        bounds = default;
+
+        Collider[] colliders = root.GetComponentsInChildren<Collider>(true);
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            Collider col = colliders[i];
+            if (!col.enabled)
+            {
+                continue;
+            }
+
+            if (bounds.size == Vector3.zero)
+            {
+                bounds = col.bounds;
+            }
+            else
+            {
+                bounds.Encapsulate(col.bounds);
+            }
+        }
+
+        if (bounds.size != Vector3.zero)
+        {
+            return true;
+        }
+
+        Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Renderer renderer = renderers[i];
+            if (!renderer.enabled)
+            {
+                continue;
+            }
+
+            if (bounds.size == Vector3.zero)
+            {
+                bounds = renderer.bounds;
+            }
+            else
+            {
+                bounds.Encapsulate(renderer.bounds);
+            }
+        }
+
+        return bounds.size != Vector3.zero;
     }
 
     private void BroadcastLobbyPlayers()
