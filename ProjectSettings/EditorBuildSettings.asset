@@ -24,7 +24,7 @@ EditorBuildSettings:
     path: Assets/Scenes/GeneratorScene.unity
     guid: ac05e625da6692042a9b2be9e0bb94ce
   - enabled: 1
-    path: Assets/Scenes/Terrains/TerrainTest1.unity
+    path: Assets/Prefab/Terrains/TerrainTest1.unity
     guid: a12a491455402ed4db7f094d6a748a58
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

@@ -132,6 +132,7 @@ public class GenericNode : NetworkBehaviour, ITextInfoOverlay, IGatherable
         }
     }
 
+    [Server]
     void DropItems()
     {
         if (dropPrefab == null || dropCount <= 0) return;
@@ -141,6 +142,14 @@ public class GenericNode : NetworkBehaviour, ITextInfoOverlay, IGatherable
             Vector2 scatter = Random.insideUnitCircle * dropScatterRadius;
             Vector3 spawnPos = transform.position + new Vector3(scatter.x, dropHeight, scatter.y);
             GameObject item = Instantiate(dropPrefab, spawnPos, Quaternion.identity);
+            if(!item.TryGetComponent<NetworkIdentity>(out _))
+            {
+                Debug.LogWarning($"Dropped item ({item.name}) has no NetworkIdentity. It will only exist on server/host unless clients also instantiate it locally.");
+            }
+            else
+            {
+                Debug.Log($"Dropped item ({item.name}) has a NetworkIdentity. It will be synchronized across clients.");
+            }
             NetworkServer.Spawn(item);
         }
     }

@@ -318,7 +318,7 @@ public class GameNetworkManager : NetworkManager
         }
         else
         {
-            Debug.LogWarning("Custom terrain prefab has no NetworkIdentity. It will only exist on server/host unless clients also instantiate it locally.");
+            Debug.LogWarning($"Custom terrain prefab ({customTerrainPrefab.name}) has no NetworkIdentity. It will only exist on server/host unless clients also instantiate it locally.");
         }
     }
 

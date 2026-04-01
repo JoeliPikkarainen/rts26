@@ -369,16 +369,17 @@ MonoBehaviour:
   autoCreatePlayer: 1
   playerSpawnMethod: 0
   spawnPrefabs:
-  - {fileID: 4451539087776509870, guid: b4c92fac457d0de478c84161ee2a48d2, type: 3}
   - {fileID: 4168645261038454558, guid: 88841087b690c3e40b2a6b3ec8ff15e0, type: 3}
   - {fileID: 4129618807708620643, guid: 91e174cd4af88984cb8a1f0345a87fc7, type: 3}
   - {fileID: 482992993898891931, guid: bb2d3068d4556b042816128671577241, type: 3}
   - {fileID: 2774795837449536054, guid: b8c518947bba8a247a427518edf74409, type: 3}
+  - {fileID: 7345081136456254546, guid: 0c3412fef298baf4898262b9ae6529fc, type: 3}
+  - {fileID: 2459434815632641773, guid: d681c15c451499a42bc0c7201d885148, type: 3}
+  - {fileID: 7345081136456254546, guid: a1d52984a8a2d094cb7b6a121ab2f7e2, type: 3}
+  - {fileID: 4974797514177843240, guid: f565d472c62c2ec43b641af10f8adc57, type: 3}
   - {fileID: 6175708925539154374, guid: e0a4d4c03f439b644a90aa0330cfb149, type: 3}
   - {fileID: 381691323341613716, guid: 160441b8861652942a6d5582b609bf67, type: 3}
-  - {fileID: 7345081136456254546, guid: 0c3412fef298baf4898262b9ae6529fc, type: 3}
-  - {fileID: 7345081136456254546, guid: a1d52984a8a2d094cb7b6a121ab2f7e2, type: 3}
-  - {fileID: 2459434815632641773, guid: d681c15c451499a42bc0c7201d885148, type: 3}
+  - {fileID: 2490250484252353405, guid: 38078aea61800c04fb92073b5215c2c1, type: 3}
   exceptionsDisconnect: 1
   snapshotSettings:
     bufferTimeMultiplier: 2
@@ -397,7 +398,7 @@ MonoBehaviour:
   multiplayerLobbyScene: Assets/Scenes/MultiplayerLobbyScene.unity
   multiplayerGameScene: Assets/Scenes/MultiPlayerGameSceneTemplate1.unity
   gameplayWorldMode: 1
-  customTerrainPrefab: {fileID: 4451539087776509870, guid: b4c92fac457d0de478c84161ee2a48d2, type: 3}
+  customTerrainPrefab: {fileID: 2490250484252353405, guid: 38078aea61800c04fb92073b5215c2c1, type: 3}
   customTerrainPosition: {x: 0, y: 0, z: 0}
   customTerrainRotationEuler: {x: 0, y: 0, z: 0}
   customTerrainSpawnHeightOffset: 2

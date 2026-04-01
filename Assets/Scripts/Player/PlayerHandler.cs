@@ -480,6 +480,12 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
 
     void TryInteract()
     {
+        if(!this)
+        {
+            Debug.LogWarning("PlayerHandler component is missing or destroyed. Cannot perform interaction.");
+            return;
+        }
+
         BuildPlayerAimRayFromCrosshair(1000f, false, out Ray cameraRay, out Ray playerRay, out Vector3 playerPos, out bool hasCameraHit, out RaycastHit cameraHit);
 
         DrawDebugRay(cameraRay.origin, cameraRay.direction, 1000f, cameraRayRenderer, Color.magenta);
@@ -487,6 +493,14 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
 
         if (!TryGetCrosshairInteractionHit(interactRange, out RaycastHit hit, playerPos, hasCameraHit, cameraHit))
         {
+            if (hasCameraHit && cameraHit.collider != null)
+            {
+                Debug.Log("No interactable object within range. Crosshair is on: " + cameraHit.collider.gameObject.name + " " + cameraHit.collider.gameObject.tag);
+            }
+            else
+            {
+                Debug.Log("No interactable object within range. Crosshair ray hit nothing.");
+            }
             return;
         }
 
@@ -697,6 +711,7 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         return true;
     }
 
+    [Client]
     void TryPickup()
     {
         BuildPlayerAimRayFromCrosshair(1000f, false, out Ray cameraRay, out Ray playerRay, out Vector3 playerPos, out bool hasCameraHit, out RaycastHit cameraHit);
@@ -704,7 +719,24 @@ public class PlayerHandler : MonoBehaviour, ITextInfoOverlay, IDamageable
         DrawDebugRay(cameraRay.origin, cameraRay.direction, 1000f, cameraRayRenderer, Color.magenta);
         DrawDebugRay(playerRay.origin, playerRay.direction, pickupRange, playerRayRenderer, Color.cyan);
 
-        if (TryGetCrosshairInteractionHit(pickupRange, out RaycastHit hit, playerPos, hasCameraHit, cameraHit))
+        if(!TryGetCrosshairInteractionHit(pickupRange, out RaycastHit hit, playerPos, hasCameraHit, cameraHit))
+        {
+            if(!this)
+            {
+                Debug.LogWarning("PlayerHandler component is missing or destroyed. Cannot perform pickup raycast.");
+                return;
+            }
+            if (hasCameraHit && cameraHit.collider != null)
+            {
+                Debug.Log("No pickable object within pickup range. Crosshair is on: " + cameraHit.collider.gameObject.name + " " + cameraHit.collider.gameObject.tag);
+            }
+            else
+            {
+                Debug.Log("No pickable object within pickup range. Crosshair ray hit nothing.");
+            }
+            return;
+        }
+        else
         {
             Debug.Log("Pick up ray reached object: " + hit.collider.gameObject.name + " " + hit.collider.gameObject.tag);
 

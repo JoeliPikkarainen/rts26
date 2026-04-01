@@ -57,5 +57,21 @@ Game loop:
 | Save/Load               | Save world state (built structures, recruited NPC ownership/state, inventories).                                                         | Planned     |
 | UI/UX Polish            | Improve build menu readability, inventory HUD, status feedback, and control hints for demo clarity.                                      | Planned     |
 
-Approximately hours spent 24h
+
+## Notes on Terrain creation (Mirror compatible)
+
+### How to create a valid scene in the designer
+* Create scene.
+* Add empty game object (TerrainObject).
+* Give TerrainObject a NetworkIdentity.
+* Add new Terrain, and edit it for liking
+* Move the Terrain under the TerrainObject.
+* Add environment prefabs, but remove their NetworkIdentity component.
+
+This is sad because it forces standalone environment prefabs to have NetworkIdentity,
+but we still need a copy of it without the NetworkIdentity component.
+This leads to having duplicates until and actual way to do it is resolved. (Removing the nested NetworkIdentity components in code at runtime?)
+
+Approximately hours spent 26h
+
 

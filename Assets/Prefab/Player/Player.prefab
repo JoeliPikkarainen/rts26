@@ -442,8 +442,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: '::'
   moveSpeed: 5
-  interactRange: 3
-  pickupRange: 2.5
+  interactRange: 5
+  pickupRange: 5
   damage: 1
   actionCooldown: 0.55
   attackSpeedMultiplier: 1

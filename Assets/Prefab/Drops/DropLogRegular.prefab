@@ -122,7 +122,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LogItem
   logType: Log
-  prefab: {fileID: 0}
+  prefab: {fileID: 482992993898891931}
 --- !u!136 &68066955349667301
 CapsuleCollider:
   m_ObjectHideFlags: 0

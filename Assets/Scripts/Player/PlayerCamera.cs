@@ -14,9 +14,9 @@ public class PlayerCameraController : MonoBehaviour
     [Tooltip("Distance from pivot")]
     public float distanceBehind = 3f;
 
-    [Range(-80f, 80f)]
-    [Tooltip("Initial vertical angle (looking up/down)")]
-    public float initialAngle = 15f;
+    [SerializeField] private float lookDownAngle = 30f; // How far down the camera looks at the player
+    [SerializeField] private float lookUpAngle = 60f;   // How far up the camera looks at the player
+    private float initialAngle = 50f;
 
     private float yaw = 0f;   // Horizontal rotation
     private float pitch = 0f; // Vertical rotation
